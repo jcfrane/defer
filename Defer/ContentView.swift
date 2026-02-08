@@ -1,24 +1,32 @@
-//
-//  ContentView.swift
-//  Defer
-//
-//  Created by JC Frane on 2/7/26.
-//
-
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            HomeView()
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
+
+            HistoryView()
+                .tabItem {
+                    Label("History", systemImage: "clock.arrow.circlepath")
+                }
+
+            AchievementsView()
+                .tabItem {
+                    Label("Achievements", systemImage: "rosette")
+                }
         }
-        .padding()
+        .tint(DeferTheme.tabActive)
+        .toolbarBackground(DeferTheme.primary, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .tabBar)
     }
 }
 
 #Preview {
     ContentView()
+        .modelContainer(DeferModelContainer.makeModelContainer(inMemory: true))
 }
