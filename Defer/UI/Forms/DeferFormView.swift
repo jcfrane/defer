@@ -84,7 +84,7 @@ struct DeferFormView: View {
 
                     if targetDate <= startDate {
                         Label("Target date must be later than start date.", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(DeferTheme.danger)
                             .font(.subheadline)
                     }
                 }

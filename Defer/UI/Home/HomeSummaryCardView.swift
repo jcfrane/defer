@@ -4,18 +4,18 @@ struct HomeSummaryCardView: View {
     let stats: HomeStats
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.5)) {
             Text("Growth Through Restraint")
                 .font(.title2.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
 
-            HStack(spacing: 12) {
+            HStack(spacing: DeferTheme.spacing(1.5)) {
                 HomeStatTileView(title: "Active", value: "\(stats.active)", icon: "target")
                 HomeStatTileView(title: "Best Streak", value: "\(stats.longestStreak)", icon: "flame.fill")
                 HomeStatTileView(title: "Due Soon", value: "\(stats.dueSoon)", icon: "clock.fill")
             }
         }
-        .padding(18)
+        .padding(DeferTheme.spacing(2.25))
         .glassCard()
     }
 }
@@ -26,22 +26,22 @@ private struct HomeStatTileView: View {
     let icon: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
             Image(systemName: icon)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(DeferTheme.textMuted)
             Text(value)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
             Text(title)
                 .font(.caption)
                 .foregroundStyle(DeferTheme.textMuted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
+        .padding(DeferTheme.spacing(1.5))
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.14))
+                .fill(DeferTheme.surface.opacity(0.68))
         )
     }
 }

@@ -25,7 +25,7 @@ struct HistoryView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: DeferTheme.spacing(2)) {
                         AppPageHeaderView(title: "History")
 
                         if completions.isEmpty {
@@ -36,8 +36,8 @@ struct HistoryView: View {
                             timelineSection
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.horizontal, DeferTheme.spacing(2))
+                    .padding(.top, DeferTheme.spacing(1.5))
                     .padding(.bottom, 80)
                 }
             }
@@ -48,10 +48,10 @@ struct HistoryView: View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.seal")
                 .font(.system(size: 44))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(DeferTheme.textPrimary)
             Text("No completions yet")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
             Text("Your completed defers will appear here with timeline stats.")
                 .font(.subheadline)
                 .foregroundStyle(DeferTheme.textMuted)
@@ -65,7 +65,7 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Completion Stats")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
 
             HStack(spacing: 12) {
                 statBlock(title: "Completed", value: "\(completions.count)", icon: "checkmark.circle.fill")
@@ -80,7 +80,7 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Category Breakdown")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
 
             if categoryBreakdown.isEmpty {
                 Text("No categories yet")
@@ -90,14 +90,14 @@ struct HistoryView: View {
                 ForEach(categoryBreakdown, id: \.0) { category, count in
                     HStack {
                         Label(category.displayName, systemImage: DeferTheme.categoryIcon(for: category))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(DeferTheme.textPrimary)
                         Spacer()
                         Text("\(count)")
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(DeferTheme.textPrimary)
                     }
                     .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.14)))
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DeferTheme.surface.opacity(0.65)))
                 }
             }
         }
@@ -109,14 +109,14 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Timeline")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
 
             ForEach(completions) { completion in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text(completion.deferTitle)
                             .font(.headline)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(DeferTheme.textPrimary)
                         Spacer()
                         Text(completion.completedAt, style: .date)
                             .font(.caption)
@@ -133,12 +133,12 @@ struct HistoryView: View {
                     if let summary = completion.summary, !summary.isEmpty {
                         Text(summary)
                             .font(.caption)
-                            .foregroundStyle(.white.opacity(0.85))
+                            .foregroundStyle(DeferTheme.textMuted)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.14)))
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DeferTheme.surface.opacity(0.65)))
             }
         }
         .padding(18)
@@ -149,16 +149,16 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: icon)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(DeferTheme.textMuted)
             Text(value)
                 .font(.title2.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
             Text(title)
                 .font(.caption)
                 .foregroundStyle(DeferTheme.textMuted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.14)))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DeferTheme.surface.opacity(0.65)))
     }
 }

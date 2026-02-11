@@ -26,7 +26,7 @@ struct AchievementsView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 14) {
+                    VStack(spacing: DeferTheme.spacing(1.75)) {
                         AppPageHeaderView(title: "Achievements")
 
                         summaryCard
@@ -39,8 +39,8 @@ struct AchievementsView: View {
                             )
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.horizontal, DeferTheme.spacing(2))
+                    .padding(.top, DeferTheme.spacing(1.5))
                     .padding(.bottom, 80)
                 }
             }
@@ -51,7 +51,7 @@ struct AchievementsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Progress Gallery")
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
 
             HStack(spacing: 12) {
                 statBlock(title: "Unlocked", value: "\(unlockedAchievements.count)", icon: "rosette")
@@ -67,11 +67,11 @@ struct AchievementsView: View {
         VStack(alignment: .leading, spacing: 6) {
             Image(systemName: icon)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(DeferTheme.textMuted)
 
             Text(value)
                 .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
 
             Text(title)
                 .font(.caption)
@@ -79,7 +79,7 @@ struct AchievementsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.14)))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DeferTheme.surface.opacity(0.65)))
     }
 }
 
@@ -100,14 +100,15 @@ private struct AchievementBadgeCard: View {
 
                 Image(systemName: definition.icon)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DeferTheme.textPrimary)
+                    .symbolEffect(.bounce, value: isUnlocked)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(definition.title)
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DeferTheme.textPrimary)
 
                     Spacer()
 
@@ -116,7 +117,7 @@ private struct AchievementBadgeCard: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(DeferTheme.badgeColor(for: definition.tier).opacity(0.9)))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DeferTheme.textPrimary)
                 }
 
                 Text(definition.details)
@@ -126,23 +127,23 @@ private struct AchievementBadgeCard: View {
                 if let unlocked {
                     Text("Unlocked \(unlocked.unlockedAt.formatted(date: .abbreviated, time: .omitted))")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(DeferTheme.textMuted)
                 } else {
                     Text(definition.rule.progressText(using: progress))
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.82))
+                        .foregroundStyle(DeferTheme.textMuted)
                 }
             }
 
             Image(systemName: isUnlocked ? "checkmark.seal.fill" : "lock.fill")
                 .font(.title3)
-                .foregroundStyle(isUnlocked ? DeferTheme.success : .white.opacity(0.55))
+                .foregroundStyle(isUnlocked ? DeferTheme.success : DeferTheme.textMuted)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.14)))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(DeferTheme.surface.opacity(0.65)))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(isUnlocked ? 0.35 : 0.12), lineWidth: 1)
+                .stroke(DeferTheme.cardStroke.opacity(isUnlocked ? 1 : 0.7), lineWidth: 1)
         )
     }
 }

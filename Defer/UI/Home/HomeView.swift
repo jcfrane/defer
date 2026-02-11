@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var sortOption: HomeSortOption = .closestDate
     @State private var selectedCategory: DeferCategory?
     @State private var showingCreateForm = false
+    @State private var viewingDefer: DeferItem?
     @State private var editingDefer: DeferItem?
     @State private var pendingDestructiveAction: HomePendingDestructiveAction?
     @State private var errorMessage: String?
@@ -50,6 +51,10 @@ struct HomeView: View {
         HomeFormatting.timeOfDayTitle(from: .now)
     }
 
+    private var activeDeferIDs: [UUID] {
+        activeAndOngoingDefers.map(\.id)
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -57,7 +62,7 @@ struct HomeView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: DeferTheme.spacing(2)) {
                         AppPageHeaderView(
                             title: pageTitle,
                             subtitle: {
@@ -69,12 +74,12 @@ struct HomeView: View {
                                 } label: {
                                     Image(systemName: "plus.circle.fill")
                                         .font(.title2.weight(.semibold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(DeferTheme.textPrimary)
                                 }
                             }
                         )
 
-                        HomeMotivationCardView(
+                        HomeMotivationView(
                             dateText: quoteDateText,
                             quoteText: quoteOfTheDay.text,
                             quoteAuthor: quoteOfTheDay.author ?? "Unknown",
@@ -90,16 +95,22 @@ struct HomeView: View {
                             HomeEmptyStateView()
                                 .padding(.top, 40)
                         } else {
-                            LazyVStack(spacing: 12) {
-                                ForEach(activeAndOngoingDefers) { item in
+                            LazyVStack(spacing: DeferTheme.spacing(1.5)) {
+                                ForEach(Array(activeAndOngoingDefers.enumerated()), id: \.element.id) { index, item in
                                     HomeDeferCardView(
                                         item: item,
                                         onCheckIn: { checkIn(item) },
                                         onMarkFailed: { presentDestructive(.markFailed, for: item) },
                                         onTogglePause: { togglePause(item) },
-                                        onCardTap: { editingDefer = item }
+                                        onCardTap: { viewingDefer = item }
+                                    )
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                    .animation(
+                                        .spring(response: 0.45, dampingFraction: 0.82).delay(Double(index) * 0.04),
+                                        value: activeDeferIDs
                                     )
                                     .contextMenu {
+                                        Button("View details") { viewingDefer = item }
                                         Button("Edit") { editingDefer = item }
                                         Button("Cancel defer") { presentDestructive(.cancel, for: item) }
                                         Button("Delete defer", role: .destructive) {
@@ -110,8 +121,8 @@ struct HomeView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.horizontal, DeferTheme.spacing(2))
+                    .padding(.top, DeferTheme.spacing(1.5))
                     .padding(.bottom, 100)
                 }
             }
@@ -124,6 +135,18 @@ struct HomeView: View {
                 DeferFormView(mode: .edit, initialDraft: .from(item)) { draft in
                     updateDefer(item, with: draft)
                 }
+            }
+            .sheet(item: $viewingDefer) { item in
+                DeferDetailView(
+                    item: item,
+                    onCheckIn: { checkIn(item) },
+                    onTogglePause: { togglePause(item) },
+                    onMarkFailed: { presentDestructive(.markFailed, for: item) },
+                    onEdit: {
+                        viewingDefer = nil
+                        editingDefer = item
+                    }
+                )
             }
             .alert(item: $pendingDestructiveAction) { pending in
                 Alert(
@@ -164,7 +187,7 @@ struct HomeView: View {
             .overlay(alignment: .top) {
                 if showAchievementCelebration {
                     HomeUnlockBannerView(newlyUnlockedCount: newlyUnlockedCount)
-                        .padding(.top, 8)
+                        .padding(.top, DeferTheme.spacing(1))
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
@@ -211,6 +234,7 @@ struct HomeView: View {
         let achievementCountBefore = currentAchievementCount()
         do {
             try repository.checkIn(deferItem: item, status: .success, note: nil, at: .now)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             celebrateIfNeeded(previousCount: achievementCountBefore)
         } catch {
             errorMessage = error.localizedDescription
@@ -221,6 +245,7 @@ struct HomeView: View {
         do {
             let targetStatus: DeferStatus = item.status == .paused ? .active : .paused
             try repository.setStatus(for: item, to: targetStatus, at: .now)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -249,7 +274,10 @@ struct HomeView: View {
         let achievementCountBefore = currentAchievementCount()
         do {
             try repository.enforceStrictModeCheckIn(asOf: .now)
-            _ = try repository.autoCompleteEligibleDefers(asOf: .now)
+            let completedCount = try repository.autoCompleteEligibleDefers(asOf: .now)
+            if completedCount > 0 {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
             celebrateIfNeeded(previousCount: achievementCountBefore)
         } catch {
             errorMessage = error.localizedDescription

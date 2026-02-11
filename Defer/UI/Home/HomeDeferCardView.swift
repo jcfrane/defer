@@ -11,30 +11,30 @@ struct HomeDeferCardView: View {
     private var progress: Double { item.progressPercent() }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(2)) {
+            HStack(spacing: DeferTheme.spacing(1.25)) {
                 Image(systemName: DeferTheme.categoryIcon(for: item.category))
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DeferTheme.textPrimary)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.white.opacity(0.18)))
+                    .background(Circle().fill(DeferTheme.surface.opacity(0.82)))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
-                        .font(.headline)
+                        .font(.headline.weight(.medium))
                         .foregroundStyle(DeferTheme.textPrimary)
 
                     Text(item.category.displayName)
                         .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(DeferTheme.textPrimary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
                             Capsule()
-                                .fill(Color.white.opacity(0.16))
+                                .fill(DeferTheme.surface.opacity(0.68))
                                 .overlay(
                                     Capsule()
-                                        .stroke(Color.white.opacity(0.24), lineWidth: 1)
+                                        .stroke(DeferTheme.cardStroke, lineWidth: 1)
                                 )
                         )
                 }
@@ -43,7 +43,7 @@ struct HomeDeferCardView: View {
 
                 Text(item.status.displayName)
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DeferTheme.textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(DeferTheme.statusColor(for: item.status).opacity(0.9)))
@@ -51,7 +51,7 @@ struct HomeDeferCardView: View {
 
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text("\(daysRemaining)")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit())
                     .foregroundStyle(DeferTheme.textPrimary)
 
                 Text(daysRemaining == 1 ? "day left" : "days left")
@@ -63,7 +63,7 @@ struct HomeDeferCardView: View {
                 HStack {
                     Label("Streak \(item.streakCount)", systemImage: "flame.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(DeferTheme.textPrimary)
                     Spacer()
                     Text("\(Int(progress * 100))%")
                         .font(.caption)
@@ -87,7 +87,7 @@ struct HomeDeferCardView: View {
                 quickButton(
                     title: item.status == .paused ? "Resume" : "Pause",
                     icon: item.status == .paused ? "play.fill" : "pause.fill",
-                    color: .orange,
+                    color: DeferTheme.warning,
                     isDisabled: item.status == .failed || item.status == .completed,
                     action: onTogglePause
                 )
@@ -102,7 +102,7 @@ struct HomeDeferCardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .padding(18)
+        .padding(DeferTheme.spacing(2.25))
         .glassCard()
         .contentShape(Rectangle())
         .onTapGesture {
@@ -126,7 +126,7 @@ struct HomeDeferCardView: View {
                 .padding(.vertical, 9)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.white)
+        .foregroundStyle(DeferTheme.textPrimary)
         .background(Capsule().fill(color.opacity(isDisabled ? 0.35 : 0.95)))
         .disabled(isDisabled)
     }

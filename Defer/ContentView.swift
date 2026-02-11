@@ -1,12 +1,26 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ContentView: View {
+    init() {
+        Self.configureTabBarAppearance()
+    }
+
     var body: some View {
+        tabShell
+    }
+
+    private var tabShell: some View {
         TabView {
             HomeView()
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
+                }
+
+            AchievementsView()
+                .tabItem {
+                    Label("Achievements", systemImage: "rosette")
                 }
 
             HistoryView()
@@ -14,15 +28,38 @@ struct ContentView: View {
                     Label("History", systemImage: "clock.arrow.circlepath")
                 }
 
-            AchievementsView()
+            SettingsView()
                 .tabItem {
-                    Label("Achievements", systemImage: "rosette")
+                    Label("Settings", systemImage: "gearshape.fill")
                 }
         }
-        .tint(DeferTheme.tabActive)
+        .tint(.white)
         .toolbarBackground(DeferTheme.primary, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .toolbarColorScheme(.dark, for: .tabBar)
+    }
+
+    private static func configureTabBarAppearance() {
+        let selectedColor = UIColor.white
+        let unselectedColor = UIColor(red: 0.76, green: 0.83, blue: 0.79, alpha: 1.0)
+        let backgroundColor = UIColor(red: 0.15, green: 0.32, blue: 0.25, alpha: 1.0)
+
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = backgroundColor
+        appearance.shadowColor = UIColor.black.withAlphaComponent(0.2)
+
+        let stacked = appearance.stackedLayoutAppearance
+        stacked.selected.iconColor = selectedColor
+        stacked.selected.titleTextAttributes = [.foregroundColor: selectedColor]
+        stacked.normal.iconColor = unselectedColor
+        stacked.normal.titleTextAttributes = [.foregroundColor: unselectedColor]
+
+        appearance.inlineLayoutAppearance = stacked
+        appearance.compactInlineLayoutAppearance = stacked
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 }
 
