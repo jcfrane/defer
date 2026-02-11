@@ -18,11 +18,11 @@ enum DeferTheme {
     static let cardBase = surface.opacity(0.72)
     static let cardStroke = sand.opacity(0.25)
 
-    static let textPrimary = sand
-    static let textMuted = sand.opacity(0.74)
+    static let textPrimary = Color.white
+    static let textMuted = Color.white
 
     static let accent = amber
-    static let tabActive = sand
+    static let tabActive = Color.white
 
     static let homeBackground = LinearGradient(
         colors: [

@@ -17,6 +17,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
+    
 
             AchievementsView()
                 .tabItem {
@@ -41,7 +42,7 @@ struct ContentView: View {
 
     private static func configureTabBarAppearance() {
         let selectedColor = UIColor.white
-        let unselectedColor = UIColor(red: 0.76, green: 0.83, blue: 0.79, alpha: 1.0)
+        let unselectedColor = UIColor.white
         let backgroundColor = UIColor(red: 0.15, green: 0.32, blue: 0.25, alpha: 1.0)
 
         let appearance = UITabBarAppearance()
