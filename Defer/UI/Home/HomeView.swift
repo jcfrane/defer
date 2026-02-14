@@ -175,7 +175,7 @@ struct HomeView: View {
                                         onTogglePause: { togglePause(item) },
                                         onCardTap: {
                                             AppHaptics.selection()
-                                            editingDefer = item
+                                            viewingDefer = item
                                         }
                                     )
                                     .transition(.move(edge: .bottom).combined(with: .opacity))

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct DeferDetailView: View {
     let item: DeferItem
@@ -9,7 +10,24 @@ struct DeferDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var atmosphereTime: TimeInterval = 0
+
     private var progress: Double { item.progressPercent() }
+    private var daysRemaining: Int { item.daysRemaining() }
+    private let failAccent = Color(red: 0.86, green: 0.28, blue: 0.24)
+    private let atmosphereTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
+
+    private var checkInCount: Int {
+        item.streakRecords.filter { $0.status == .success }.count
+    }
+
+    private var pauseCount: Int {
+        item.streakRecords.filter { $0.status == .skipped }.count
+    }
+
+    private var failCount: Int {
+        item.streakRecords.filter { $0.status == .failed }.count
+    }
 
     var body: some View {
         NavigationStack {
@@ -17,99 +35,48 @@ struct DeferDetailView: View {
                 DeferTheme.homeBackground
                     .ignoresSafeArea()
 
-                ScrollView {
+                detailAtmosphere
+
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: DeferTheme.spacing(2)) {
-                        AppPageHeaderView(title: item.title)
-
-                        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.5)) {
-                            Text(item.category.displayName)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(DeferTheme.textMuted)
-
-                            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                                Text("\(item.daysRemaining())")
-                                    .font(.system(size: 42, weight: .bold, design: .rounded).monospacedDigit())
-                                    .foregroundStyle(DeferTheme.textPrimary)
-                                Text(item.daysRemaining() == 1 ? "day left" : "days left")
-                                    .font(.subheadline)
-                                    .foregroundStyle(DeferTheme.textMuted)
-                            }
-
-                            ProgressView(value: progress)
-                                .tint(DeferTheme.accent)
-                                .scaleEffect(x: 1, y: 1.5, anchor: .center)
-
-                            HStack {
-                                detailTag("Status", item.status.displayName)
-                                detailTag("Streak", "\(item.streakCount)")
-                            }
-
-                            if let details = item.details, !details.isEmpty {
-                                VStack(alignment: .leading, spacing: DeferTheme.spacing(0.75)) {
-                                    Text("Why I defer this")
-                                        .font(.footnote.weight(.semibold))
-                                        .foregroundStyle(DeferTheme.textMuted)
-                                    Text(details)
-                                        .font(.body)
+                        AppPageHeaderView(
+                            title: item.title,
+                            subtitle: {
+                                HStack(spacing: DeferTheme.spacing(0.75)) {
+                                    Label(item.category.displayName, systemImage: DeferTheme.categoryIcon(for: item.category))
+                                        .font(.caption.weight(.semibold))
                                         .foregroundStyle(DeferTheme.textPrimary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Capsule().fill(DeferTheme.surface.opacity(0.65)))
+
+                                    Text(item.status.displayName)
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(DeferTheme.textPrimary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Capsule().fill(DeferTheme.statusColor(for: item.status).opacity(0.92)))
                                 }
                             }
-                        }
-                        .padding(DeferTheme.spacing(2.25))
-                        .glassCard()
+                        )
 
-                        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.25)) {
-                            Text("Actions")
-                                .font(.headline)
-                                .foregroundStyle(DeferTheme.textPrimary)
-
-                            HStack(spacing: DeferTheme.spacing(1)) {
-                                actionButton(
-                                    title: item.hasCheckedIn() ? "Checked" : "Check In",
-                                    icon: item.hasCheckedIn() ? "checkmark.circle.fill" : "checkmark.circle",
-                                    color: DeferTheme.success,
-                                    disabled: item.hasCheckedIn() || item.status != .active,
-                                    action: onCheckIn
-                                )
-
-                                actionButton(
-                                    title: item.status == .paused ? "Resume" : "Pause",
-                                    icon: item.status == .paused ? "play.fill" : "pause.fill",
-                                    color: DeferTheme.warning,
-                                    disabled: item.status.isTerminal,
-                                    action: onTogglePause
-                                )
-
-                                actionButton(
-                                    title: "Fail",
-                                    icon: "xmark.circle",
-                                    color: DeferTheme.danger,
-                                    disabled: item.status.isTerminal,
-                                    action: onMarkFailed
-                                )
-                            }
-
-                            Button {
-                                onEdit()
-                            } label: {
-                                Label("Edit Defer", systemImage: "square.and.pencil")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(DeferTheme.textPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Capsule().fill(DeferTheme.surface.opacity(0.85)))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(DeferTheme.spacing(2.25))
-                        .glassCard()
+                        momentumHero
                     }
-                    .padding(.horizontal, DeferTheme.spacing(2))
+                    .padding(.horizontal, DeferTheme.spacing(1.5))
                     .padding(.top, DeferTheme.spacing(1.5))
                     .padding(.bottom, 80)
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        onEdit()
+                    } label: {
+                        Label("Edit", systemImage: "square.and.pencil")
+                    }
+                    .foregroundStyle(DeferTheme.textPrimary)
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         dismiss()
@@ -117,24 +84,225 @@ struct DeferDetailView: View {
                     .foregroundStyle(DeferTheme.textPrimary)
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomActionBar
+            }
+            .onReceive(atmosphereTimer) { tick in
+                atmosphereTime = tick.timeIntervalSinceReferenceDate
+            }
         }
     }
 
-    private func detailTag(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(DeferTheme.textMuted)
-            Text(value)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(DeferTheme.textPrimary)
+    private var detailAtmosphere: some View {
+        return GeometryReader { proxy in
+            let size = proxy.size
+            let t = atmosphereTime
+            let driftA = CGFloat(sin(t * 0.14))
+            let driftB = CGFloat(cos(t * 0.11))
+            let driftC = CGFloat(sin(t * 0.09))
+            let driftD = CGFloat(cos(t * 0.17))
+
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [DeferTheme.success.opacity(0.18), .clear],
+                            center: .center,
+                            startRadius: 6,
+                            endRadius: 220
+                        )
+                    )
+                    .frame(width: 360, height: 360)
+                    .position(
+                        x: (size.width * 0.5) + (driftA * size.width * 0.46),
+                        y: (size.height * 0.14) + (driftB * size.height * 0.08)
+                    )
+                    .scaleEffect(1 + (driftC * 0.08))
+                    .blur(radius: 10)
+
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [DeferTheme.warning.opacity(0.22), .clear],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: 260
+                        )
+                    )
+                    .frame(width: 420, height: 420)
+                    .position(
+                        x: (size.width * 0.5) + (driftD * size.width * 0.44),
+                        y: (size.height * 0.04) + (driftA * size.height * 0.09)
+                    )
+                    .scaleEffect(1 + (driftB * 0.07))
+                    .blur(radius: 11)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Capsule().fill(DeferTheme.surface.opacity(0.75)))
+        .allowsHitTesting(false)
     }
 
-    private func actionButton(
+    private var momentumHero: some View {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.5)) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(daysRemaining == 1 ? "1 day left" : "\(daysRemaining) days left")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(DeferTheme.textPrimary)
+
+                    Text("Streak \(item.streakCount) • Strict mode \(item.strictMode ? "On" : "Off")")
+                        .font(.subheadline)
+                        .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
+                }
+
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.16), lineWidth: 7)
+                        .frame(width: 72, height: 72)
+
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    DeferTheme.success,
+                                    DeferTheme.warning,
+                                    DeferTheme.accent
+                                ],
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        )
+                        .frame(width: 72, height: 72)
+                        .rotationEffect(.degrees(-90))
+
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(DeferTheme.textPrimary)
+                }
+                .padding(.top, DeferTheme.spacing(0.75))
+            }
+
+            if let details = item.details, !details.isEmpty {
+                Text(details)
+                    .font(.footnote)
+                    .foregroundStyle(DeferTheme.textMuted.opacity(0.86))
+                    .lineLimit(4)
+            }
+
+            HStack(spacing: DeferTheme.spacing(0.75)) {
+                statChip(
+                    label: "Check-ins",
+                    value: checkInCount,
+                    color: DeferTheme.success,
+                    icon: "checkmark.circle.fill"
+                )
+                statChip(
+                    label: "Paused",
+                    value: pauseCount,
+                    color: DeferTheme.warning,
+                    icon: "pause.fill"
+                )
+                statChip(
+                    label: "Failed",
+                    value: failCount,
+                    color: failAccent,
+                    icon: "xmark.circle.fill",
+                    emphasized: true
+                )
+            }
+
+            Divider()
+                .overlay(Color.white.opacity(0.14))
+
+            VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
+                Text("Consistency Heatmap")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(DeferTheme.textPrimary)
+
+                DeferContributionChartView(item: item)
+            }
+        }
+        .padding(.vertical, DeferTheme.spacing(1))
+    }
+
+    private var bottomActionBar: some View {
+        HStack(spacing: DeferTheme.spacing(1)) {
+            bottomActionButton(
+                title: item.hasCheckedIn() ? "Checked" : "Check In",
+                icon: item.hasCheckedIn() ? "checkmark.circle.fill" : "checkmark.circle",
+                color: DeferTheme.success,
+                disabled: item.hasCheckedIn() || item.status != .active,
+                action: onCheckIn
+            )
+
+            bottomActionButton(
+                title: item.status == .paused ? "Resume" : "Pause",
+                icon: item.status == .paused ? "play.fill" : "pause.fill",
+                color: DeferTheme.warning,
+                disabled: item.status.isTerminal,
+                action: onTogglePause
+            )
+
+            bottomActionButton(
+                title: "Fail",
+                icon: "xmark.circle",
+                color: failAccent,
+                disabled: item.status.isTerminal,
+                action: onMarkFailed
+            )
+        }
+        .padding(.horizontal, DeferTheme.spacing(1))
+        .padding(.top, DeferTheme.spacing(1))
+        .padding(.bottom, DeferTheme.spacing(1.5))
+        .background(Color.clear)
+    }
+
+    private func statChip(
+        label: String,
+        value: Int,
+        color: Color,
+        icon: String,
+        emphasized: Bool = false
+    ) -> some View {
+        let fill = Color.white.opacity(0.08)
+        let stroke = Color.white.opacity(0.16)
+        let valueColor = emphasized ? color : DeferTheme.textPrimary
+
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(color)
+
+                Text(label)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
+                    .lineLimit(1)
+            }
+
+            Text("\(value)")
+                .font(.title3.weight(.bold).monospacedDigit())
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(fill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(stroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func bottomActionButton(
         title: String,
         icon: String,
         color: Color,
@@ -146,8 +314,8 @@ struct DeferDetailView: View {
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 11)
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
