@@ -98,6 +98,24 @@ final class SwiftDataDeferRepository: DeferRepository {
         let previousStatus = deferItem.status
         deferItem.transition(to: status, at: date)
 
+        if status == .paused && previousStatus != .paused {
+            insertStreakRecordIfNeeded(
+                for: deferItem,
+                status: .skipped,
+                note: "Paused",
+                at: date
+            )
+        }
+
+        if status == .failed && previousStatus != .failed {
+            insertStreakRecordIfNeeded(
+                for: deferItem,
+                status: .failed,
+                note: "Failed",
+                at: date
+            )
+        }
+
         if status == .completed && previousStatus != .completed {
             let durationDays = max(
                 1,
@@ -136,14 +154,12 @@ final class SwiftDataDeferRepository: DeferRepository {
             throw DeferRepositoryError.duplicateCheckInToday
         }
 
-        let record = StreakRecord(
-            date: date,
+        insertStreakRecordIfNeeded(
+            for: deferItem,
             status: status,
             note: note,
-            createdAt: date,
-            deferItem: deferItem
+            at: date
         )
-        context.insert(record)
 
         if status == .success {
             deferItem.registerCheckIn(at: date)
@@ -229,16 +245,41 @@ final class SwiftDataDeferRepository: DeferRepository {
 
         for deferItem in strictDefers {
             guard let lastCheckIn = deferItem.lastCheckInDate else {
-                deferItem.transition(to: .failed, at: date)
+                try setStatus(for: deferItem, to: .failed, at: date)
                 continue
             }
 
             let lastCheckInDay = calendar.startOfDay(for: lastCheckIn)
             if lastCheckInDay < yesterday {
-                deferItem.transition(to: .failed, at: date)
+                try setStatus(for: deferItem, to: .failed, at: date)
             }
         }
 
-        try context.save()
+        if context.hasChanges {
+            try context.save()
+        }
+    }
+
+    private func insertStreakRecordIfNeeded(
+        for deferItem: DeferItem,
+        status: StreakEntryStatus,
+        note: String?,
+        at date: Date
+    ) {
+        let day = calendar.startOfDay(for: date)
+        let alreadyExists = deferItem.streakRecords.contains {
+            $0.status == status && calendar.isDate($0.date, inSameDayAs: day)
+        }
+
+        guard !alreadyExists else { return }
+
+        let record = StreakRecord(
+            date: date,
+            status: status,
+            note: note,
+            createdAt: date,
+            deferItem: deferItem
+        )
+        context.insert(record)
     }
 }
