@@ -9,11 +9,11 @@ struct HomeWeekdayStripView: View {
             ForEach(Array(weekdayLetters.enumerated()), id: \.offset) { index, letter in
                 Text(letter)
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(index == currentWeekdayIndex ? .white : DeferTheme.textMuted)
+                    .foregroundStyle(index == currentWeekdayIndex ? DeferTheme.textPrimary : DeferTheme.textMuted)
                     .frame(width: 24, height: 24)
                     .background(
                         Circle()
-                            .fill(index == currentWeekdayIndex ? Color.white.opacity(0.22) : Color.clear)
+                            .fill(index == currentWeekdayIndex ? DeferTheme.surface.opacity(0.92) : Color.clear)
                     )
             }
         }

@@ -16,11 +16,13 @@ struct AppPageHeaderView<Subtitle: View, Trailing: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.25)) {
+            HStack(alignment: .center, spacing: DeferTheme.spacing(1.5)) {
                 Text(title)
                     .font(.largeTitle.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DeferTheme.textPrimary)
+                    .minimumScaleFactor(0.85)
+                    .lineLimit(1)
 
                 Spacer(minLength: 0)
 

@@ -148,38 +148,37 @@ Build a SwiftUI + SwiftData iOS app that helps users defer urges/purchases/habit
 ## Phase 4: UI/UX Theme and Visual Direction
 
 ### 4.1 Theme Concept: “Growth Through Restraint”
-- [ ] Visual metaphor: progress as a living tree.
-- [ ] Core mood: calm, disciplined, optimistic.
-- [ ] Primary palette:
-  - [ ] Deep Forest (`#1F4D3A`)
-  - [ ] Moss (`#6F9E76`)
-  - [ ] Sand (`#EADFC8`)
-  - [ ] Accent Amber (`#D79B2E`)
-  - [ ] Error Clay (`#B44D3A`)
-- [ ] Use semantic tokens (`primary`, `surface`, `success`, `warning`, `danger`).
+- [x] Visual metaphor: progress as a living tree.
+- [x] Core mood: calm, disciplined, optimistic.
+- [x] Primary palette:
+  - [x] Deep Forest (`#1F4D3A`)
+  - [x] Moss (`#6F9E76`)
+  - [x] Sand (`#EADFC8`)
+  - [x] Accent Amber (`#D79B2E`)
+  - [x] Error Clay (`#B44D3A`)
+- [x] Use semantic tokens (`primary`, `surface`, `success`, `warning`, `danger`).
 
 ### 4.2 Typography and Layout
-- [ ] Use SF Pro with hierarchy:
-  - [ ] Large title for countdown.
-  - [ ] Medium weight for defer titles.
-  - [ ] Monospaced digits for day counters.
-- [ ] 8pt spacing system and card-based layout.
-- [ ] Ensure Dynamic Type support and accessibility contrast.
+- [x] Use SF Pro with hierarchy:
+  - [x] Large title for countdown.
+  - [x] Medium weight for defer titles.
+  - [x] Monospaced digits for day counters.
+- [x] 8pt spacing system and card-based layout.
+- [x] Ensure Dynamic Type support and accessibility contrast.
 
 ### 4.3 Motion and Delight
 - [ ] Tree growth animation linked to streak milestones.
-- [ ] Card reveal animation on dashboard load.
-- [ ] Badge unlock burst animation.
-- [ ] Subtle haptics for check-ins and completion.
+- [x] Card reveal animation on dashboard load.
+- [x] Badge unlock burst animation.
+- [x] Subtle haptics for check-ins and completion.
 
 ### 4.4 Screen Inventory
-- [ ] Onboarding (value + permissions + reminders).
-- [ ] Dashboard.
-- [ ] Defer detail.
-- [ ] Create/Edit defer.
-- [ ] Achievements gallery.
-- [ ] History timeline.
-- [ ] Settings/Profile.
+- [x] Dashboard.
+- [x] Defer detail.
+- [x] Create/Edit defer.
+- [x] Achievements gallery.
+- [x] History timeline.
+- [x] Settings/Profile.
 
 ---
 

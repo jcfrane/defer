@@ -5,10 +5,10 @@ struct HomeEmptyStateView: View {
         VStack(spacing: 12) {
             Image(systemName: "leaf.circle")
                 .font(.system(size: 44))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(DeferTheme.textPrimary)
             Text("No ongoing defers")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(DeferTheme.textPrimary)
             Text("Create your first defer and start building your streak.")
                 .font(.subheadline)
                 .foregroundStyle(DeferTheme.textMuted)

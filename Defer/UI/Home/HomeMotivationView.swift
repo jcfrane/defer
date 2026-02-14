@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct HomeMotivationCardView: View {
+struct HomeMotivationView: View {
     let dateText: String
     let quoteText: String
     let quoteAuthor: String
@@ -9,20 +9,20 @@ struct HomeMotivationCardView: View {
     @State private var quoteOrbDrift = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .center, spacing: DeferTheme.spacing(2.25)) {
+            VStack(alignment: .leading, spacing: DeferTheme.spacing(1.25)) {
                 Text(dateText)
                     .font(.title3.weight(.medium))
-                    .foregroundStyle(Color.white.opacity(0.42))
+                    .foregroundStyle(DeferTheme.textMuted)
 
                 Text(quoteText)
                     .font(.system(size: 18, weight: .regular, design: .default))
-                    .foregroundStyle(.white.opacity(0.95))
+                    .foregroundStyle(DeferTheme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("Writer, \(quoteAuthor)")
                     .font(.footnote)
-                    .foregroundStyle(Color.white.opacity(0.38))
+                    .foregroundStyle(DeferTheme.textMuted)
             }
 
             Spacer(minLength: 0)
@@ -43,6 +43,6 @@ struct HomeMotivationCardView: View {
                     }
                 }
         }
-        .padding(.vertical, 18)
+        .padding(.vertical, DeferTheme.spacing(2.25))
     }
 }

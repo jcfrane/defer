@@ -5,7 +5,7 @@ struct HomeControlsRowView: View {
     @Binding var selectedCategory: DeferCategory?
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: DeferTheme.spacing(1.25)) {
             Menu {
                 ForEach(HomeSortOption.allCases) { option in
                     Button(option.rawValue) { sortOption = option }
@@ -15,8 +15,8 @@ struct HomeControlsRowView: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.white.opacity(0.2)))
-                    .foregroundStyle(.white)
+                    .background(Capsule().fill(DeferTheme.surface.opacity(0.76)))
+                    .foregroundStyle(DeferTheme.textPrimary)
             }
 
             Menu {
@@ -29,8 +29,8 @@ struct HomeControlsRowView: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.white.opacity(0.2)))
-                    .foregroundStyle(.white)
+                    .background(Capsule().fill(DeferTheme.surface.opacity(0.76)))
+                    .foregroundStyle(DeferTheme.textPrimary)
             }
 
             Spacer()
