@@ -57,3 +57,25 @@ extension AppPageHeaderView where Subtitle == EmptyView, Trailing == EmptyView {
         self.init(title: title, subtitle: { EmptyView() }, trailing: { EmptyView() })
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        AppPageHeaderView(
+            title: "Morning",
+            subtitle: {
+                Text("Move one step with intention today.")
+                    .font(.caption)
+                    .foregroundStyle(DeferTheme.textMuted)
+            },
+            trailing: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(DeferTheme.textPrimary)
+            }
+        )
+        .padding()
+    }
+}

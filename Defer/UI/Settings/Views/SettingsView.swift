@@ -6,14 +6,7 @@ struct SettingsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \DeferItem.targetDate) private var deferItems: [DeferItem]
 
-    @AppStorage("notifications.remindersEnabled") private var remindersEnabled = false
-    @AppStorage("notifications.dailyCheckInEnabled") private var dailyCheckInEnabled = true
-    @AppStorage("notifications.milestoneEnabled") private var milestoneEnabled = true
-    @AppStorage("notifications.targetApproachingEnabled") private var targetApproachingEnabled = true
-    @AppStorage("notifications.reminderTimeInterval") private var reminderTimeInterval = defaultReminderTimeInterval
-
-    @State private var authorizationState: LocalNotificationAuthorizationState = .notDetermined
-    @State private var showNotificationOnboarding = false
+    @StateObject private var viewModel = SettingsViewModel()
 
     var body: some View {
         NavigationStack {
@@ -42,34 +35,34 @@ struct SettingsView: View {
                     .padding(.bottom, 90)
                 }
             }
-            .sheet(isPresented: $showNotificationOnboarding) {
+            .sheet(isPresented: $viewModel.showNotificationOnboarding) {
                 notificationOnboardingSheet
             }
             .task {
                 await refreshNotificationState()
                 await syncNotifications()
             }
-            .onChange(of: remindersEnabled) { _, _ in
+            .onChange(of: viewModel.remindersEnabled) { _, _ in
                 Task {
                     await handleRemindersToggleChanged()
                 }
             }
-            .onChange(of: dailyCheckInEnabled) { _, _ in
+            .onChange(of: viewModel.dailyCheckInEnabled) { _, _ in
                 Task {
                     await syncNotifications()
                 }
             }
-            .onChange(of: milestoneEnabled) { _, _ in
+            .onChange(of: viewModel.milestoneEnabled) { _, _ in
                 Task {
                     await syncNotifications()
                 }
             }
-            .onChange(of: targetApproachingEnabled) { _, _ in
+            .onChange(of: viewModel.targetApproachingEnabled) { _, _ in
                 Task {
                     await syncNotifications()
                 }
             }
-            .onChange(of: reminderTimeInterval) { _, _ in
+            .onChange(of: viewModel.reminderTimeInterval) { _, _ in
                 Task {
                     await syncNotifications()
                 }
@@ -144,12 +137,12 @@ struct SettingsView: View {
                     .lineLimit(2)
 
                 HStack(spacing: DeferTheme.spacing(0.75)) {
-                    infoChip(
+                    SettingsInfoChipView(
                         icon: "clock.fill",
                         text: reminderTimeText,
                         color: DeferTheme.warning
                     )
-                    infoChip(
+                    SettingsInfoChipView(
                         icon: "bell.badge.fill",
                         text: "\(enabledReminderTypeCount) types",
                         color: DeferTheme.success
@@ -174,7 +167,7 @@ struct SettingsView: View {
                     .frame(width: 70, height: 70)
                     .shadow(color: DeferTheme.accent.opacity(0.45), radius: 14, y: 6)
 
-                Image(systemName: authorizationState == .enabled ? "bell.badge.fill" : "bell.slash.fill")
+                Image(systemName: viewModel.authorizationState == .enabled ? "bell.badge.fill" : "bell.slash.fill")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(DeferTheme.textPrimary)
             }
@@ -213,7 +206,7 @@ struct SettingsView: View {
 
             authorizationSummaryCard
 
-            switch authorizationState {
+            switch viewModel.authorizationState {
             case .enabled:
                 enabledNotificationControls
             case .notDetermined:
@@ -239,7 +232,7 @@ struct SettingsView: View {
                     Spacer()
                     Button("Not now") {
                         AppHaptics.selection()
-                        showNotificationOnboarding = false
+                        viewModel.showNotificationOnboarding = false
                     }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(DeferTheme.textPrimary.opacity(0.94))
@@ -383,19 +376,19 @@ struct SettingsView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
 
-            onboardingBenefitRow(
+            SettingsOnboardingBenefitRowView(
                 icon: "checkmark.circle.fill",
                 color: DeferTheme.success,
                 title: "Daily check-in reminder",
                 subtitle: "A gentle daily pulse to keep momentum."
             )
-            onboardingBenefitRow(
+            SettingsOnboardingBenefitRowView(
                 icon: "flag.fill",
                 color: DeferTheme.warning,
                 title: "Milestone progress reminders",
                 subtitle: "Celebrate 25%, 50%, and 75% progress marks."
             )
-            onboardingBenefitRow(
+            SettingsOnboardingBenefitRowView(
                 icon: "calendar.badge.clock",
                 color: DeferTheme.accent,
                 title: "Target-date approaching alerts",
@@ -420,9 +413,9 @@ struct SettingsView: View {
                 .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
 
             HStack(spacing: DeferTheme.spacing(0.75)) {
-                infoChip(icon: "clock.fill", text: reminderTimeText, color: DeferTheme.warning)
-                infoChip(icon: "sparkles", text: "Smart timing", color: DeferTheme.success)
-                infoChip(icon: "calendar", text: "Ahead alerts", color: DeferTheme.accent)
+                SettingsInfoChipView(icon: "clock.fill", text: reminderTimeText, color: DeferTheme.warning)
+                SettingsInfoChipView(icon: "sparkles", text: "Smart timing", color: DeferTheme.success)
+                SettingsInfoChipView(icon: "calendar", text: "Ahead alerts", color: DeferTheme.accent)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -460,7 +453,7 @@ struct SettingsView: View {
     private var authorizationSummaryCard: some View {
         panel {
             HStack(alignment: .top, spacing: DeferTheme.spacing(1)) {
-                iconOrb(
+                SettingsIconOrbView(
                     systemName: authorizationIcon,
                     tint: authorizationTone
                 )
@@ -483,7 +476,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
             panel {
                 HStack(spacing: DeferTheme.spacing(1)) {
-                    iconOrb(systemName: "bell.fill", tint: DeferTheme.accent)
+                    SettingsIconOrbView(systemName: "bell.fill", tint: DeferTheme.accent)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Enable reminder schedule")
@@ -501,10 +494,10 @@ struct SettingsView: View {
                 }
             }
 
-            if remindersEnabled {
+            if viewModel.remindersEnabled {
                 panel {
                     HStack(spacing: DeferTheme.spacing(1)) {
-                        iconOrb(systemName: "clock.fill", tint: DeferTheme.warning)
+                        SettingsIconOrbView(systemName: "clock.fill", tint: DeferTheme.warning)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Reminder time")
@@ -571,7 +564,7 @@ struct SettingsView: View {
         panel {
             VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
                 HStack(spacing: DeferTheme.spacing(1)) {
-                    iconOrb(systemName: "bell.badge", tint: DeferTheme.warning)
+                    SettingsIconOrbView(systemName: "bell.badge", tint: DeferTheme.warning)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Notifications are not set up yet.")
                             .font(.subheadline.weight(.semibold))
@@ -584,7 +577,7 @@ struct SettingsView: View {
 
                 Button {
                     AppHaptics.selection()
-                    showNotificationOnboarding = true
+                    viewModel.showNotificationOnboarding = true
                 } label: {
                     Label("Set up notifications", systemImage: "sparkles")
                 }
@@ -598,7 +591,7 @@ struct SettingsView: View {
         panel {
             VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
                 HStack(spacing: DeferTheme.spacing(1)) {
-                    iconOrb(systemName: "bell.slash.fill", tint: DeferTheme.danger)
+                    SettingsIconOrbView(systemName: "bell.slash.fill", tint: DeferTheme.danger)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Notifications are blocked")
                             .font(.subheadline.weight(.semibold))
@@ -620,168 +613,88 @@ struct SettingsView: View {
     private var reminderTimeBinding: Binding<Date> {
         Binding(
             get: {
-                Date(timeIntervalSinceReferenceDate: reminderTimeInterval)
+                Date(timeIntervalSinceReferenceDate: viewModel.reminderTimeInterval)
             },
             set: { value in
-                AppHaptics.selection()
-                reminderTimeInterval = value.timeIntervalSinceReferenceDate
+                viewModel.setReminderTime(value)
             }
         )
     }
 
     private var remindersToggleBinding: Binding<Bool> {
         Binding(
-            get: { remindersEnabled },
+            get: { viewModel.remindersEnabled },
             set: { value in
-                guard value != remindersEnabled else { return }
-                remindersEnabled = value
-                AppHaptics.impact(.light)
+                viewModel.setRemindersEnabled(value)
             }
         )
     }
 
     private var dailyCheckInToggleBinding: Binding<Bool> {
         Binding(
-            get: { dailyCheckInEnabled },
+            get: { viewModel.dailyCheckInEnabled },
             set: { value in
-                guard value != dailyCheckInEnabled else { return }
-                dailyCheckInEnabled = value
-                AppHaptics.selection()
+                viewModel.setDailyCheckInEnabled(value)
             }
         )
     }
 
     private var milestoneToggleBinding: Binding<Bool> {
         Binding(
-            get: { milestoneEnabled },
+            get: { viewModel.milestoneEnabled },
             set: { value in
-                guard value != milestoneEnabled else { return }
-                milestoneEnabled = value
-                AppHaptics.selection()
+                viewModel.setMilestoneEnabled(value)
             }
         )
     }
 
     private var targetApproachingToggleBinding: Binding<Bool> {
         Binding(
-            get: { targetApproachingEnabled },
+            get: { viewModel.targetApproachingEnabled },
             set: { value in
-                guard value != targetApproachingEnabled else { return }
-                targetApproachingEnabled = value
-                AppHaptics.selection()
+                viewModel.setTargetApproachingEnabled(value)
             }
         )
     }
 
     private var hasEnabledReminderType: Bool {
-        dailyCheckInEnabled || milestoneEnabled || targetApproachingEnabled
+        viewModel.hasEnabledReminderType
     }
 
     private var enabledReminderTypeCount: Int {
-        [dailyCheckInEnabled, milestoneEnabled, targetApproachingEnabled].filter { $0 }.count
+        viewModel.enabledReminderTypeCount
     }
 
     private var reminderTimeText: String {
-        Date(timeIntervalSinceReferenceDate: reminderTimeInterval).formatted(date: .omitted, time: .shortened)
+        viewModel.reminderTimeText
     }
 
     private var reminderProfileTitle: String {
-        switch authorizationState {
-        case .enabled where remindersEnabled && hasEnabledReminderType:
-            return "Actively guiding your streak"
-        case .enabled where remindersEnabled:
-            return "Schedule enabled, types muted"
-        case .enabled:
-            return "Permission ready, schedule off"
-        case .notDetermined:
-            return "Permission not requested"
-        case .denied:
-            return "Notifications blocked"
-        case .unknown:
-            return "Permission status unavailable"
-        }
+        viewModel.reminderProfileTitle
     }
 
     private var reminderProfileSubtitle: String {
-        switch authorizationState {
-        case .enabled where remindersEnabled && hasEnabledReminderType:
-            return "You will receive focused reminders at \(reminderTimeText)."
-        case .enabled where remindersEnabled:
-            return "Turn on at least one reminder type to start scheduling."
-        case .enabled:
-            return "Enable your reminder schedule anytime from below."
-        case .notDetermined:
-            return "Run setup to request access and unlock reminder controls."
-        case .denied:
-            return "Enable notification access in iOS Settings to continue."
-        case .unknown:
-            return "Reopen the app or check iOS settings to refresh status."
-        }
+        viewModel.reminderProfileSubtitle
     }
 
     private var authorizationBadgeText: String {
-        switch authorizationState {
-        case .enabled:
-            return "Allowed"
-        case .denied:
-            return "Blocked"
-        case .notDetermined:
-            return "Not Set"
-        case .unknown:
-            return "Unknown"
-        }
+        viewModel.authorizationBadgeText
     }
 
     private var authorizationHeadlineText: String {
-        switch authorizationState {
-        case .enabled:
-            return "Permission Granted"
-        case .denied:
-            return "Permission Denied"
-        case .notDetermined:
-            return "Permission Needed"
-        case .unknown:
-            return "Permission Unavailable"
-        }
+        viewModel.authorizationHeadlineText
     }
 
     private var authorizationIcon: String {
-        switch authorizationState {
-        case .enabled:
-            return "checkmark.circle.fill"
-        case .denied:
-            return "xmark.circle.fill"
-        case .notDetermined:
-            return "questionmark.circle.fill"
-        case .unknown:
-            return "exclamationmark.triangle.fill"
-        }
+        viewModel.authorizationIcon
     }
 
     private var authorizationTone: Color {
-        switch authorizationState {
-        case .enabled:
-            return DeferTheme.success
-        case .denied:
-            return DeferTheme.danger
-        case .notDetermined:
-            return DeferTheme.warning
-        case .unknown:
-            return DeferTheme.warning
-        }
+        viewModel.authorizationTone
     }
 
     private var authorizationDetailText: String {
-        switch authorizationState {
-        case .enabled:
-            return "Configure your schedule and choose exactly which reminder types should reach you."
-        case .denied:
-            return "Defer cannot deliver reminders until you re-enable notification access in iOS Settings."
-        case .notDetermined:
-            return "You have not granted access yet. Run setup to start receiving reminder notifications."
-        case .unknown:
-            return "Unable to read notification permission status right now. Try reopening the app."
-        }
+        viewModel.authorizationDetailText
     }
 
     private func panel<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -807,7 +720,7 @@ struct SettingsView: View {
     ) -> some View {
         panel {
             HStack(spacing: DeferTheme.spacing(1)) {
-                iconOrb(systemName: icon, tint: iconTint)
+                SettingsIconOrbView(systemName: icon, tint: iconTint)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -824,69 +737,6 @@ struct SettingsView: View {
                     .tint(DeferTheme.accent)
             }
         }
-    }
-
-    private func iconOrb(systemName: String, tint: Color) -> some View {
-        Image(systemName: systemName)
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(tint)
-            .frame(width: 28, height: 28)
-            .background(
-                Circle()
-                    .fill(tint.opacity(0.18))
-            )
-    }
-
-    private func infoChip(icon: String, text: String, color: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.caption2.weight(.bold))
-            Text(text)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(color.opacity(0.17))
-                .overlay(
-                    Capsule()
-                        .stroke(color.opacity(0.24), lineWidth: 1)
-                )
-        )
-    }
-
-    private func onboardingBenefitRow(
-        icon: String,
-        color: Color,
-        title: String,
-        subtitle: String
-    ) -> some View {
-        HStack(alignment: .top, spacing: DeferTheme.spacing(1)) {
-            iconOrb(systemName: icon, tint: color)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(DeferTheme.textPrimary)
-                Text(subtitle)
-                    .font(.footnote)
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(DeferTheme.spacing(1))
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.black.opacity(0.14))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-        )
     }
 
     private var activeItems: [DeferItem] {
@@ -906,57 +756,20 @@ struct SettingsView: View {
             }
     }
 
-    private var preferences: NotificationPreferences {
-        NotificationPreferences(
-            remindersEnabled: remindersEnabled,
-            dailyCheckInEnabled: dailyCheckInEnabled,
-            milestoneEnabled: milestoneEnabled,
-            targetApproachingEnabled: targetApproachingEnabled,
-            reminderTime: Date(timeIntervalSinceReferenceDate: reminderTimeInterval)
-        )
-    }
-
     private func handleRemindersToggleChanged() async {
-        if remindersEnabled {
-            let state = await LocalNotificationManager.authorizationState()
-            authorizationState = state
-            if state == .notDetermined {
-                remindersEnabled = false
-                showNotificationOnboarding = true
-                await syncNotifications()
-                return
-            }
-
-            if state != .enabled {
-                remindersEnabled = false
-                AppHaptics.warning()
-            }
-        }
-
-        await syncNotifications()
+        await viewModel.handleRemindersToggleChanged(activeItems: activeItems)
     }
 
     private func continueFromNotificationOnboarding() async {
-        showNotificationOnboarding = false
-        authorizationState = await LocalNotificationManager.requestAuthorizationIfNeeded()
-        if authorizationState == .enabled {
-            remindersEnabled = true
-            AppHaptics.success()
-        } else {
-            AppHaptics.warning()
-        }
-        await syncNotifications()
+        await viewModel.continueFromNotificationOnboarding(activeItems: activeItems)
     }
 
     private func refreshNotificationState() async {
-        authorizationState = await LocalNotificationManager.authorizationState()
-        if authorizationState != .enabled && remindersEnabled {
-            remindersEnabled = false
-        }
+        await viewModel.refreshNotificationState()
     }
 
     private func syncNotifications() async {
-        await LocalNotificationManager.syncNotifications(preferences: preferences, activeItems: activeItems)
+        await viewModel.syncNotifications(activeItems: activeItems)
     }
 
     private func openSystemSettings() {
@@ -964,12 +777,9 @@ struct SettingsView: View {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
     }
+}
 
-    private static var defaultReminderTimeInterval: TimeInterval {
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: .now)
-        components.hour = 20
-        components.minute = 0
-        let date = Calendar.current.date(from: components) ?? .now
-        return date.timeIntervalSinceReferenceDate
-    }
+#Preview {
+    SettingsView()
+        .modelContainer(PreviewFixtures.inMemoryContainerWithSeedData())
 }

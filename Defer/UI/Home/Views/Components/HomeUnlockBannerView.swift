@@ -26,3 +26,13 @@ struct HomeUnlockBannerView: View {
         }
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeUnlockBannerView(newlyUnlockedCount: 2)
+            .padding()
+    }
+}

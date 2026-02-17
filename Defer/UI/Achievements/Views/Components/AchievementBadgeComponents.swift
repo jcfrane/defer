@@ -1,312 +1,6 @@
 import SwiftUI
-import SwiftData
 
-struct AchievementsView: View {
-    @Query(sort: \Achievement.unlockedAt, order: .reverse)
-    private var unlockedAchievements: [Achievement]
-
-    @Query(sort: \CompletionHistory.completedAt)
-    private var completions: [CompletionHistory]
-
-    @Query(sort: \DeferItem.updatedAt)
-    private var defers: [DeferItem]
-
-    @State private var showcasedBadgeKey: String?
-
-    private var unlockedByKey: [String: Achievement] {
-        Dictionary(uniqueKeysWithValues: unlockedAchievements.map { ($0.key, $0) })
-    }
-
-    private var progress: AchievementProgress {
-        AchievementProgress.from(defers: defers, completions: completions)
-    }
-
-    private var unlockedDefinitions: [AchievementDefinition] {
-        AchievementCatalog.all.filter { unlockedByKey[$0.key] != nil }
-    }
-
-    private var lockedDefinitions: [AchievementDefinition] {
-        AchievementCatalog.all.filter { unlockedByKey[$0.key] == nil }
-    }
-
-    private var completionRatio: Double {
-        guard !AchievementCatalog.all.isEmpty else { return 0 }
-        return Double(unlockedAchievements.count) / Double(AchievementCatalog.all.count)
-    }
-
-    private var badgeColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: DeferTheme.spacing(1.25), alignment: .top)]
-    }
-
-    private var showcasedDefinition: AchievementDefinition? {
-        guard let showcasedBadgeKey else { return nil }
-        return AchievementCatalog.definition(for: showcasedBadgeKey)
-    }
-
-    private var showcasedAchievement: Achievement? {
-        guard let showcasedBadgeKey else { return nil }
-        return unlockedByKey[showcasedBadgeKey]
-    }
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                DeferTheme.homeBackground
-                    .ignoresSafeArea()
-
-                achievementsAtmosphere
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: DeferTheme.spacing(1.75)) {
-                        AppPageHeaderView(
-                            title: "Achievements",
-                            subtitle: {
-                                Text("Every streak leaves a visible mark.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
-                            }
-                        )
-
-                        summaryCard
-
-                        if !unlockedDefinitions.isEmpty {
-                            sectionHeader(
-                                title: "Unlocked",
-                                subtitle: "\(unlockedDefinitions.count) collected",
-                                icon: "sparkles",
-                                iconColor: DeferTheme.success
-                            )
-
-                            Text("Tap any badge to preview it in the center. Drag to rotate.")
-                                .font(.caption)
-                                .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            badgeGrid(definitions: unlockedDefinitions)
-                        }
-
-                        if !lockedDefinitions.isEmpty {
-                            sectionHeader(
-                                title: "In Progress",
-                                subtitle: "\(lockedDefinitions.count) to go",
-                                icon: "lock.fill",
-                                iconColor: DeferTheme.warning
-                            )
-
-                            badgeGrid(definitions: lockedDefinitions)
-                        }
-                    }
-                    .padding(.horizontal, DeferTheme.spacing(2))
-                    .padding(.top, DeferTheme.spacing(1.5))
-                    .padding(.bottom, 84)
-                }
-
-                if let showcasedDefinition {
-                    AchievementShowcaseOverlay(
-                        definition: showcasedDefinition,
-                        unlocked: showcasedAchievement
-                    ) {
-                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
-                            showcasedBadgeKey = nil
-                        }
-                    }
-                    .zIndex(20)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.22), value: showcasedBadgeKey)
-    }
-
-    private func badgeGrid(definitions: [AchievementDefinition]) -> some View {
-        LazyVGrid(columns: badgeColumns, spacing: DeferTheme.spacing(1.25)) {
-            ForEach(definitions) { definition in
-                AchievementBadgeTile(
-                    definition: definition,
-                    unlocked: unlockedByKey[definition.key],
-                    progress: progress
-                ) {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
-                        showcasedBadgeKey = definition.key
-                    }
-                }
-            }
-        }
-    }
-
-    private var achievementsAtmosphere: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(red: 0.36, green: 0.18, blue: 0.94).opacity(0.33),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 220
-                    )
-                )
-                .frame(width: 380, height: 380)
-                .offset(x: 170, y: -280)
-                .blur(radius: 10)
-
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(red: 0.08, green: 0.76, blue: 0.96).opacity(0.24),
-                            .clear
-                        ],
-                        center: .center,
-                        startRadius: 10,
-                        endRadius: 200
-                    )
-                )
-                .frame(width: 340, height: 340)
-                .offset(x: -180, y: -150)
-                .blur(radius: 9)
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var summaryCard: some View {
-        HStack(spacing: DeferTheme.spacing(1.5)) {
-            VStack(alignment: .leading, spacing: DeferTheme.spacing(0.75)) {
-                Text("Badge Vault")
-                    .font(.caption.weight(.semibold))
-                    .tracking(0.7)
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.72))
-
-                Text(summaryTitle)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(DeferTheme.textPrimary)
-
-                Text(summarySubtitle)
-                    .font(.footnote)
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
-
-                HStack(spacing: DeferTheme.spacing(0.75)) {
-                    statChip(icon: "rosette", text: "\(unlockedAchievements.count) unlocked", color: DeferTheme.success)
-                    statChip(icon: "flag.checkered", text: "\(AchievementCatalog.all.count) total", color: DeferTheme.warning)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.88, green: 0.26, blue: 0.95),
-                                Color(red: 0.26, green: 0.42, blue: 1.0)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 74, height: 74)
-                    .shadow(color: Color(red: 0.44, green: 0.30, blue: 1.0).opacity(0.45), radius: 14, y: 6)
-
-                VStack(spacing: 2) {
-                    Text("\(Int((completionRatio * 100).rounded()))%")
-                        .font(.title3.weight(.bold))
-                    Text("complete")
-                        .font(.caption2.weight(.semibold))
-                        .textCase(.uppercase)
-                        .tracking(0.4)
-                }
-                .foregroundStyle(DeferTheme.textPrimary)
-            }
-        }
-        .padding(DeferTheme.spacing(2))
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.13),
-                            Color.white.opacity(0.05)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
-        )
-        .shadow(color: .black.opacity(0.2), radius: 18, y: 10)
-    }
-
-    private var summaryTitle: String {
-        if unlockedAchievements.isEmpty {
-            return "Your first badge is waiting"
-        }
-        if unlockedAchievements.count == AchievementCatalog.all.count {
-            return "Full collection complete"
-        }
-        return "Collection is growing steadily"
-    }
-
-    private var summarySubtitle: String {
-        if unlockedAchievements.isEmpty {
-            return "Complete your first defer to unlock your first achievement."
-        }
-        return "\(progress.completionCount) completions and a best streak of \(progress.maxStreak) days."
-    }
-
-    private func sectionHeader(title: String, subtitle: String, icon: String, iconColor: Color) -> some View {
-        HStack(spacing: DeferTheme.spacing(1)) {
-            Image(systemName: icon)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(iconColor)
-                .frame(width: 24, height: 24)
-                .background(
-                    Circle()
-                        .fill(iconColor.opacity(0.2))
-                )
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(DeferTheme.textPrimary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.75))
-            }
-
-            Spacer()
-        }
-        .padding(.top, DeferTheme.spacing(0.5))
-    }
-
-    private func statChip(icon: String, text: String, color: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.caption2.weight(.bold))
-            Text(text)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(color.opacity(0.17))
-                .overlay(
-                    Capsule()
-                        .stroke(color.opacity(0.24), lineWidth: 1)
-                )
-        )
-    }
-}
-
-private struct AchievementBadgeTile: View {
+struct AchievementBadgeTile: View {
     let definition: AchievementDefinition
     let unlocked: Achievement?
     let progress: AchievementProgress
@@ -414,7 +108,7 @@ private struct AchievementBadgeTile: View {
     }
 }
 
-private struct AchievementBadgeArtwork: View {
+struct AchievementBadgeArtwork: View {
     let definition: AchievementDefinition
     let isUnlocked: Bool
     let size: CGFloat
@@ -823,135 +517,6 @@ private struct AchievementRibbonFoldShape: Shape {
     }
 }
 
-private struct AchievementShowcaseOverlay: View {
-    let definition: AchievementDefinition
-    let unlocked: Achievement?
-    let onDismiss: () -> Void
-
-    @State private var accumulatedRotation = CGSize.zero
-    @State private var dragRotation = CGSize.zero
-
-    private var isUnlocked: Bool {
-        unlocked != nil
-    }
-
-    private var xRotation: Double {
-        Double(accumulatedRotation.height + dragRotation.height)
-    }
-
-    private var yRotation: Double {
-        Double(accumulatedRotation.width + dragRotation.width)
-    }
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.63)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onDismiss)
-
-            VStack(spacing: DeferTheme.spacing(1.25)) {
-                HStack {
-                    Text("Badge Showcase")
-                        .font(.caption.weight(.semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(DeferTheme.textMuted.opacity(0.76))
-
-                    Spacer()
-
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(Color.white.opacity(0.86))
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                AchievementBadgeArtwork(
-                    definition: definition,
-                    isUnlocked: isUnlocked,
-                    size: 240,
-                    glowBoost: 1.3
-                )
-                .rotation3DEffect(
-                    .degrees(xRotation),
-                    axis: (x: 1, y: 0, z: 0),
-                    perspective: 0.58
-                )
-                .rotation3DEffect(
-                    .degrees(yRotation),
-                    axis: (x: 0, y: 1, z: 0),
-                    perspective: 0.58
-                )
-                .gesture(rotationGesture)
-                .onTapGesture(count: 2) {
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
-                        accumulatedRotation = .zero
-                        dragRotation = .zero
-                    }
-                }
-                .padding(.top, DeferTheme.spacing(0.5))
-                .padding(.bottom, DeferTheme.spacing(1))
-
-                Text(definition.title)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(DeferTheme.textPrimary)
-                    .multilineTextAlignment(.center)
-
-                if let unlocked {
-                    Text("Unlocked \(unlocked.unlockedAt.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(DeferTheme.success)
-                } else {
-                    Text("Locked preview")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(DeferTheme.warning)
-                }
-
-                Text("Drag to rotate. Double-tap to reset orientation.")
-                    .font(.caption)
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(DeferTheme.spacing(2))
-            .frame(maxWidth: 380)
-            .background(
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.16), Color.white.opacity(0.07)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 30, style: .continuous)
-                            .stroke(Color.white.opacity(0.24), lineWidth: 1)
-                    )
-            )
-            .shadow(color: .black.opacity(0.36), radius: 28, y: 14)
-            .padding(.horizontal, DeferTheme.spacing(2))
-        }
-    }
-
-    private var rotationGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                dragRotation = CGSize(
-                    width: value.translation.width / 6.5,
-                    height: -value.translation.height / 6.5
-                )
-            }
-            .onEnded { value in
-                let width = (accumulatedRotation.width + (value.translation.width / 6.5)).clamped(to: -45...45)
-                let height = (accumulatedRotation.height - (value.translation.height / 6.5)).clamped(to: -45...45)
-
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                    accumulatedRotation = CGSize(width: width, height: height)
-                    dragRotation = .zero
-                }
-            }
-    }
-}
 
 private struct AchievementBadgePalette {
     let outerA: Color
@@ -1226,5 +791,43 @@ private extension AchievementRule {
         case .consecutiveCompletions(let target):
             return (min(progress.maxConsecutiveCompletions, target), target)
         }
+    }
+}
+
+#Preview("Badge Tile") {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        AchievementBadgeTile(
+            definition: AchievementCatalog.all.first ?? AchievementDefinition(
+                key: "first_completion",
+                title: "First Win",
+                details: "Complete your first defer.",
+                tier: .bronze,
+                icon: "flag.checkered",
+                rule: .minCompletions(1)
+            ),
+            unlocked: nil,
+            progress: AchievementProgress(
+                completionCount: 1,
+                maxStreak: 6,
+                highestCategoryCompletionCount: 1,
+                maxConsecutiveCompletions: 1
+            ),
+            onTapUnlocked: {}
+        )
+        .padding()
+    }
+}
+
+#Preview("Badge Artwork") {
+    ZStack {
+        Color.black.ignoresSafeArea()
+        AchievementBadgeArtwork(
+            definition: AchievementCatalog.all[1],
+            isUnlocked: true,
+            size: 180
+        )
     }
 }

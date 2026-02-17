@@ -18,3 +18,13 @@ struct HomeEmptyStateView: View {
         .glassCard()
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeEmptyStateView()
+            .padding()
+    }
+}

@@ -45,3 +45,15 @@ private struct HomeStatTileView: View {
         )
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeSummaryCardView(
+            stats: HomeStats(active: 4, longestStreak: 19, dueSoon: 2)
+        )
+        .padding()
+    }
+}
