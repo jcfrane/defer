@@ -158,6 +158,7 @@ final class HomeViewModel: ObservableObject {
         let achievementCountBefore = currentAchievementCount()
 
         do {
+            _ = try repository.autoCheckInNonStrictDefers(asOf: .now)
             try repository.enforceStrictModeCheckIn(asOf: .now)
             let completedCount = try repository.autoCompleteEligibleDefers(asOf: .now)
             if completedCount > 0 {

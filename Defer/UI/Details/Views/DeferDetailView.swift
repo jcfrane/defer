@@ -29,6 +29,9 @@ struct DeferDetailView: View {
     private var failCount: Int {
         viewModel.failCount(for: item)
     }
+    private var shouldShowPauseAction: Bool {
+        item.strictMode || item.status == .paused
+    }
 
     var body: some View {
         NavigationStack {
@@ -239,13 +242,15 @@ struct DeferDetailView: View {
                 action: onCheckIn
             )
 
-            bottomActionButton(
-                title: item.status == .paused ? "Resume" : "Pause",
-                icon: item.status == .paused ? "play.fill" : "pause.fill",
-                color: DeferTheme.warning,
-                disabled: viewModel.isPauseDisabled(for: item),
-                action: onTogglePause
-            )
+            if shouldShowPauseAction {
+                bottomActionButton(
+                    title: item.status == .paused ? "Resume" : "Pause",
+                    icon: item.status == .paused ? "play.fill" : "pause.fill",
+                    color: DeferTheme.warning,
+                    disabled: viewModel.isPauseDisabled(for: item),
+                    action: onTogglePause
+                )
+            }
 
             bottomActionButton(
                 title: "Fail",

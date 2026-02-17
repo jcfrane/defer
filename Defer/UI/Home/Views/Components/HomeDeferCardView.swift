@@ -11,6 +11,7 @@ struct HomeDeferCardView: View {
     private var progress: Double { item.progressPercent() }
     private var checkInDisabled: Bool { item.hasCheckedIn() || item.status != .active }
     private var pauseDisabled: Bool { item.status == .failed || item.status == .completed }
+    private var shouldShowPauseAction: Bool { item.strictMode || item.status == .paused }
     private var failDisabled: Bool { item.status.isTerminal }
     private var shouldFeatureCheckIn: Bool {
         item.strictMode && item.status == .active && !item.hasCheckedIn()
@@ -121,10 +122,12 @@ struct HomeDeferCardView: View {
                     .disabled(checkInDisabled)
                 }
 
-                Button(action: onTogglePause) {
-                    Label(item.status == .paused ? "Resume" : "Pause", systemImage: item.status == .paused ? "play.fill" : "pause.fill")
+                if shouldShowPauseAction {
+                    Button(action: onTogglePause) {
+                        Label(item.status == .paused ? "Resume" : "Pause", systemImage: item.status == .paused ? "play.fill" : "pause.fill")
+                    }
+                    .disabled(pauseDisabled)
                 }
-                .disabled(pauseDisabled)
 
                 Button(role: .destructive, action: onMarkFailed) {
                     Label("Mark Failed", systemImage: "xmark.circle")

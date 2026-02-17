@@ -37,6 +37,7 @@ protocol DeferRepository {
     func fetchCompletedDefers() throws -> [DeferItem]
     func fetchDueSoonDefers(within days: Int, from referenceDate: Date) throws -> [DeferItem]
     func fetchOverdueDefers(from referenceDate: Date) throws -> [DeferItem]
+    func autoCheckInNonStrictDefers(asOf date: Date) throws -> Int
     func autoCompleteEligibleDefers(asOf date: Date) throws -> Int
     func enforceStrictModeCheckIn(asOf date: Date) throws
 }
@@ -217,6 +218,56 @@ final class SwiftDataDeferRepository: DeferRepository {
         }
     }
 
+    func autoCheckInNonStrictDefers(asOf date: Date = .now) throws -> Int {
+        let dayStart = calendar.startOfDay(for: date)
+        let descriptor = FetchDescriptor<DeferItem>(sortBy: [SortDescriptor(\DeferItem.targetDate)])
+        let nonStrictDefers = try context.fetch(descriptor).filter {
+            $0.status == .active &&
+            !$0.strictMode &&
+            calendar.startOfDay(for: $0.startDate) <= dayStart
+        }
+
+        guard
+            let previousDay = calendar.date(byAdding: .day, value: -1, to: dayStart)
+        else {
+            return 0
+        }
+
+        var insertedCount = 0
+
+        for deferItem in nonStrictDefers {
+            let startDay = calendar.startOfDay(for: deferItem.startDate)
+            let targetDay = calendar.startOfDay(for: deferItem.targetDate)
+            let upperBound = min(previousDay, targetDay)
+            guard startDay <= upperBound else { continue }
+
+            var cursor = nextAutoCheckInDay(for: deferItem, minimum: startDay)
+            while cursor <= upperBound {
+                let inserted = insertStreakRecordIfNeeded(
+                    for: deferItem,
+                    status: .success,
+                    note: nil,
+                    at: cursor
+                )
+                if inserted {
+                    deferItem.registerCheckIn(at: cursor)
+                    insertedCount += 1
+                }
+
+                guard let nextDay = calendar.date(byAdding: .day, value: 1, to: cursor) else {
+                    break
+                }
+                cursor = nextDay
+            }
+        }
+
+        if context.hasChanges {
+            try context.save()
+        }
+
+        return insertedCount
+    }
+
     func autoCompleteEligibleDefers(asOf date: Date = .now) throws -> Int {
         let dayStart = calendar.startOfDay(for: date)
         let descriptor = FetchDescriptor<DeferItem>(sortBy: [SortDescriptor(\DeferItem.targetDate)])
@@ -265,13 +316,13 @@ final class SwiftDataDeferRepository: DeferRepository {
         status: StreakEntryStatus,
         note: String?,
         at date: Date
-    ) {
+    ) -> Bool {
         let day = calendar.startOfDay(for: date)
         let alreadyExists = deferItem.streakRecords.contains {
             $0.status == status && calendar.isDate($0.date, inSameDayAs: day)
         }
 
-        guard !alreadyExists else { return }
+        guard !alreadyExists else { return false }
 
         let record = StreakRecord(
             date: date,
@@ -281,5 +332,29 @@ final class SwiftDataDeferRepository: DeferRepository {
             deferItem: deferItem
         )
         context.insert(record)
+        return true
+    }
+
+    private func nextAutoCheckInDay(for deferItem: DeferItem, minimum: Date) -> Date {
+        let latestSuccessDay = deferItem.streakRecords
+            .filter { $0.status == .success }
+            .map { calendar.startOfDay(for: $0.date) }
+            .max()
+
+        let latestKnownDay = [
+            deferItem.lastCheckInDate.map { calendar.startOfDay(for: $0) },
+            latestSuccessDay
+        ]
+        .compactMap { $0 }
+        .max()
+
+        guard
+            let latestKnownDay,
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: latestKnownDay)
+        else {
+            return minimum
+        }
+
+        return max(minimum, nextDay)
     }
 }

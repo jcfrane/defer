@@ -36,23 +36,50 @@ struct AchievementSummaryCardView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.88, green: 0.26, blue: 0.95),
-                                Color(red: 0.26, green: 0.42, blue: 1.0)
+                                DeferTheme.primary.opacity(0.9),
+                                DeferTheme.warning.opacity(0.82)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.2),
+                                        Color.white.opacity(0.06)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.black.opacity(0.12),
+                                        Color.clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
                     .frame(width: 74, height: 74)
-                    .shadow(color: Color(red: 0.44, green: 0.30, blue: 1.0).opacity(0.45), radius: 14, y: 6)
+                    .shadow(color: DeferTheme.primary.opacity(0.45), radius: 14, y: 6)
 
                 VStack(spacing: 2) {
                     Text("\(Int((completionRatio * 100).rounded()))%")
                         .font(.title3.weight(.bold))
                     Text("complete")
-                        .font(.caption2.weight(.semibold))
+                        .font(.system(size: 9, weight: .regular))
                         .textCase(.uppercase)
                         .tracking(0.4)
+                        .foregroundStyle(DeferTheme.textPrimary.opacity(0.86))
                 }
                 .foregroundStyle(DeferTheme.textPrimary)
             }

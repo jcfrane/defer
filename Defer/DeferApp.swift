@@ -10,12 +10,26 @@ import SwiftData
 
 @main
 struct DeferApp: App {
-    private let modelContainer = DeferModelContainer.makeModelContainer()
+    @Environment(\.scenePhase) private var scenePhase
+
+    private let modelContainer: ModelContainer
+
+    init() {
+        let container = DeferModelContainer.makeModelContainer()
+        modelContainer = container
+        BackgroundTaskManager.registerIfNeeded(modelContainer: container)
+        BackgroundTaskManager.scheduleAppRefresh()
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .modelContainer(modelContainer)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active || newPhase == .background {
+                BackgroundTaskManager.scheduleAppRefresh()
+            }
+        }
     }
 }
