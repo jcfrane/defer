@@ -11,22 +11,23 @@ struct DeferDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var atmosphereTime: TimeInterval = 0
+    @StateObject private var viewModel = DeferDetailViewModel()
 
-    private var progress: Double { item.progressPercent() }
-    private var daysRemaining: Int { item.daysRemaining() }
+    private var progress: Double { viewModel.progress(for: item) }
+    private var daysRemaining: Int { viewModel.daysRemaining(for: item) }
     private let failAccent = Color(red: 0.86, green: 0.28, blue: 0.24)
     private let atmosphereTimer = Timer.publish(every: 1.0 / 30.0, on: .main, in: .common).autoconnect()
 
     private var checkInCount: Int {
-        item.streakRecords.filter { $0.status == .success }.count
+        viewModel.checkInCount(for: item)
     }
 
     private var pauseCount: Int {
-        item.streakRecords.filter { $0.status == .skipped }.count
+        viewModel.pauseCount(for: item)
     }
 
     private var failCount: Int {
-        item.streakRecords.filter { $0.status == .failed }.count
+        viewModel.failCount(for: item)
     }
 
     var body: some View {
@@ -234,7 +235,7 @@ struct DeferDetailView: View {
                 title: item.hasCheckedIn() ? "Checked" : "Check In",
                 icon: item.hasCheckedIn() ? "checkmark.circle.fill" : "checkmark.circle",
                 color: DeferTheme.success,
-                disabled: item.hasCheckedIn() || item.status != .active,
+                disabled: viewModel.isCheckInDisabled(for: item),
                 action: onCheckIn
             )
 
@@ -242,7 +243,7 @@ struct DeferDetailView: View {
                 title: item.status == .paused ? "Resume" : "Pause",
                 icon: item.status == .paused ? "play.fill" : "pause.fill",
                 color: DeferTheme.warning,
-                disabled: item.status.isTerminal,
+                disabled: viewModel.isPauseDisabled(for: item),
                 action: onTogglePause
             )
 
@@ -250,7 +251,7 @@ struct DeferDetailView: View {
                 title: "Fail",
                 icon: "xmark.circle",
                 color: failAccent,
-                disabled: item.status.isTerminal,
+                disabled: viewModel.isFailDisabled(for: item),
                 action: onMarkFailed
             )
         }
@@ -323,4 +324,16 @@ struct DeferDetailView: View {
         .background(Capsule().fill(color.opacity(disabled ? 0.35 : 0.95)))
         .disabled(disabled)
     }
+}
+
+#Preview {
+    let bundle = PreviewFixtures.sampleBundle()
+
+    return DeferDetailView(
+        item: bundle.activeItems[0],
+        onCheckIn: {},
+        onTogglePause: {},
+        onMarkFailed: {},
+        onEdit: {}
+    )
 }

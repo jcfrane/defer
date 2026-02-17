@@ -170,3 +170,31 @@ struct HomeDeferCardView: View {
         .disabled(isDisabled)
     }
 }
+
+#Preview {
+    let item = PreviewFixtures.sampleDefer(
+        title: "No Sugar Weekdays",
+        details: "Avoid sugar Monday through Friday.",
+        category: .nutrition,
+        status: .active,
+        strictMode: true,
+        streakCount: 6,
+        startDate: Calendar.current.date(byAdding: .day, value: -8, to: .now) ?? .now,
+        targetDate: Calendar.current.date(byAdding: .day, value: 18, to: .now) ?? .now
+    )
+    item.lastCheckInDate = Calendar.current.date(byAdding: .day, value: -1, to: .now)
+
+    return ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeDeferCardView(
+            item: item,
+            onCheckIn: {},
+            onMarkFailed: {},
+            onTogglePause: {},
+            onCardTap: {}
+        )
+        .padding()
+    }
+}

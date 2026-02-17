@@ -37,3 +37,16 @@ struct HomeControlsRowView: View {
         }
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeControlsRowView(
+            sortOption: .constant(.closestDate),
+            selectedCategory: .constant(.habit)
+        )
+        .padding()
+    }
+}

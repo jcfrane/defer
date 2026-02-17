@@ -106,3 +106,17 @@ extension View {
         modifier(GlassCardModifier())
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        Text("Glass Card")
+            .font(.headline)
+            .foregroundStyle(DeferTheme.textPrimary)
+            .padding(40)
+            .glassCard()
+            .padding()
+    }
+}

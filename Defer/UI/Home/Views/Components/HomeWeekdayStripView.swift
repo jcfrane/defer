@@ -19,3 +19,13 @@ struct HomeWeekdayStripView: View {
         }
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeWeekdayStripView()
+            .padding()
+    }
+}

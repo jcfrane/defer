@@ -56,36 +56,14 @@ struct DeferFormView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var title: String
-    @State private var details: String
-    @State private var category: DeferCategory
-    @State private var startDate: Date
-    @State private var targetDate: Date
-    @State private var strictMode: Bool
+    @StateObject private var viewModel: DeferFormViewModel
 
     init(mode: Mode, initialDraft: DeferDraft, onSave: @escaping (DeferDraft) -> Void) {
         self.mode = mode
         self.initialDraft = initialDraft
         self.onSave = onSave
 
-        _title = State(initialValue: initialDraft.title)
-        _details = State(initialValue: initialDraft.details)
-        _category = State(initialValue: initialDraft.category)
-        _startDate = State(initialValue: initialDraft.startDate)
-        _targetDate = State(initialValue: initialDraft.targetDate)
-        _strictMode = State(initialValue: initialDraft.strictMode)
-    }
-
-    private var normalizedTitle: String {
-        title.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var normalizedDetails: String {
-        details.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var isValid: Bool {
-        !normalizedTitle.isEmpty && targetDate > startDate
+        _viewModel = StateObject(wrappedValue: DeferFormViewModel(initialDraft: initialDraft))
     }
 
     var body: some View {
@@ -104,7 +82,7 @@ struct DeferFormView: View {
                         timelineSection
                         rulesSection
 
-                        if targetDate <= startDate {
+                        if viewModel.isDateRangeInvalid {
                             invalidDateCard
                         }
                     }
@@ -225,7 +203,7 @@ struct DeferFormView: View {
 
     private var goalSection: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(0.8)) {
-            sectionHeader(
+            DeferFormSectionHeaderView(
                 title: "Goal",
                 subtitle: "Give your defer a clear and specific framing."
             )
@@ -233,7 +211,7 @@ struct DeferFormView: View {
             formPanel {
                 VStack(alignment: .leading, spacing: DeferTheme.spacing(1.1)) {
                     labeledInput(title: "Title", icon: "textformat") {
-                        TextField("What are you deferring?", text: $title)
+                        TextField("What are you deferring?", text: $viewModel.title)
                             .textInputAutocapitalization(.sentences)
                     }
 
@@ -243,7 +221,7 @@ struct DeferFormView: View {
                     labeledInput(title: "Details", icon: "note.text") {
                         TextField(
                             "Optional notes, context, or reason...",
-                            text: $details,
+                            text: $viewModel.details,
                             axis: .vertical
                         )
                         .lineLimit(2...5)
@@ -256,14 +234,14 @@ struct DeferFormView: View {
 
     private var classificationSection: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(0.8)) {
-            sectionHeader(
+            DeferFormSectionHeaderView(
                 title: "Classification",
                 subtitle: "Choose where this defer belongs."
             )
 
             formPanel {
                 HStack(spacing: DeferTheme.spacing(1)) {
-                    iconOrb(systemName: DeferTheme.categoryIcon(for: category), tint: DeferTheme.accent)
+                    DeferFormIconOrbView(systemName: DeferTheme.categoryIcon(for: viewModel.category), tint: DeferTheme.accent)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Category")
@@ -279,12 +257,12 @@ struct DeferFormView: View {
                         ForEach(DeferCategory.allCases) { category in
                             Button(category.displayName) {
                                 AppHaptics.selection()
-                                self.category = category
+                                viewModel.category = category
                             }
                         }
                     } label: {
                         HStack(spacing: 6) {
-                            Text(category.displayName)
+                            Text(viewModel.category.displayName)
                                 .font(.caption.weight(.semibold))
                             Image(systemName: "chevron.down")
                                 .font(.caption2.weight(.bold))
@@ -304,7 +282,7 @@ struct DeferFormView: View {
 
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(0.8)) {
-            sectionHeader(
+            DeferFormSectionHeaderView(
                 title: "Timeline",
                 subtitle: "Set a clear start and target date."
             )
@@ -314,7 +292,7 @@ struct DeferFormView: View {
                     timelineRow(
                         title: "Start date",
                         icon: "calendar.badge.plus",
-                        date: $startDate
+                        date: $viewModel.startDate
                     )
 
                     Divider()
@@ -323,7 +301,7 @@ struct DeferFormView: View {
                     timelineRow(
                         title: "Target date",
                         icon: "calendar.badge.clock",
-                        date: $targetDate
+                        date: $viewModel.targetDate
                     )
                 }
             }
@@ -332,7 +310,7 @@ struct DeferFormView: View {
 
     private var rulesSection: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(0.8)) {
-            sectionHeader(
+            DeferFormSectionHeaderView(
                 title: "Rules",
                 subtitle: "Choose how strict daily accountability should be."
             )
@@ -340,19 +318,19 @@ struct DeferFormView: View {
             formPanel {
                 VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
                     HStack(spacing: DeferTheme.spacing(1)) {
-                        iconOrb(systemName: "shield.lefthalf.filled", tint: DeferTheme.warning)
+                        DeferFormIconOrbView(systemName: "shield.lefthalf.filled", tint: DeferTheme.warning)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Strict mode")
                                 .foregroundStyle(DeferTheme.textPrimary)
-                            Text(strictMode ? "Daily check-in required" : "Daily check-in optional")
+                            Text(viewModel.strictMode ? "Daily check-in required" : "Daily check-in optional")
                                 .font(.caption)
                                 .foregroundStyle(DeferTheme.textMuted.opacity(0.75))
                         }
 
                         Spacer(minLength: 0)
 
-                        Toggle("", isOn: $strictMode)
+                        Toggle("", isOn: $viewModel.strictMode)
                             .labelsHidden()
                             .tint(DeferTheme.accent)
                     }
@@ -361,7 +339,7 @@ struct DeferFormView: View {
                         .background(Color.white.opacity(0.15))
 
                     Text(
-                        strictMode
+                        viewModel.strictMode
                         ? "You must check in daily. Missing a day marks this defer as failed."
                         : "Check-ins are optional. This defer only ends when you manually mark it failed or it reaches target date."
                     )
@@ -402,14 +380,7 @@ struct DeferFormView: View {
     private var saveBar: some View {
         VStack(spacing: DeferTheme.spacing(1)) {
             Button {
-                let draft = DeferDraft(
-                    title: normalizedTitle,
-                    details: normalizedDetails,
-                    category: category,
-                    startDate: startDate,
-                    targetDate: targetDate,
-                    strictMode: strictMode
-                )
+                let draft = viewModel.makeDraft()
                 AppHaptics.impact(.light)
                 onSave(draft)
                 dismiss()
@@ -439,8 +410,8 @@ struct DeferFormView: View {
                 .shadow(color: DeferTheme.accent.opacity(0.35), radius: 12, y: 6)
             }
             .buttonStyle(.plain)
-            .disabled(!isValid)
-            .opacity(isValid ? 1 : 0.45)
+            .disabled(!viewModel.isValid)
+            .opacity(viewModel.isValid ? 1 : 0.45)
         }
         .padding(.horizontal, DeferTheme.spacing(2))
         .padding(.top, DeferTheme.spacing(1))
@@ -469,20 +440,9 @@ struct DeferFormView: View {
             )
     }
 
-    private func sectionHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(DeferTheme.textPrimary)
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(DeferTheme.textMuted.opacity(0.76))
-        }
-    }
-
     private func timelineRow(title: String, icon: String, date: Binding<Date>) -> some View {
         HStack(spacing: DeferTheme.spacing(1)) {
-            iconOrb(systemName: icon, tint: DeferTheme.warning)
+            DeferFormIconOrbView(systemName: icon, tint: DeferTheme.warning)
 
             Text(title)
                 .foregroundStyle(DeferTheme.textPrimary)
@@ -514,17 +474,14 @@ struct DeferFormView: View {
                 .foregroundStyle(DeferTheme.textPrimary)
         }
     }
+}
 
-    private func iconOrb(systemName: String, tint: Color) -> some View {
-        Image(systemName: systemName)
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(tint)
-            .frame(width: 28, height: 28)
-            .background(
-                Circle()
-                    .fill(tint.opacity(0.18))
-            )
-    }
+#Preview {
+    DeferFormView(
+        mode: .create,
+        initialDraft: .newDefault(),
+        onSave: { _ in }
+    )
 }
 
 extension DeferDraft {

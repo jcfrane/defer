@@ -46,3 +46,18 @@ struct HomeMotivationView: View {
         .padding(.vertical, DeferTheme.spacing(2.25))
     }
 }
+
+#Preview {
+    ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        HomeMotivationView(
+            dateText: "Feb 17th",
+            quoteText: "One clean day at a time compounds into identity-level progress.",
+            quoteAuthor: "Defer",
+            orbGradient: [DeferTheme.moss, DeferTheme.sand]
+        )
+        .padding()
+    }
+}

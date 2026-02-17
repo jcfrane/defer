@@ -528,3 +528,15 @@ struct DeferContributionChartView: View {
         return calendar.startOfDay(for: dayBeforeEnd)
     }
 }
+
+#Preview {
+    let bundle = PreviewFixtures.sampleBundle()
+
+    return ZStack {
+        DeferTheme.homeBackground
+            .ignoresSafeArea()
+
+        DeferContributionChartView(item: bundle.activeItems[0])
+            .padding()
+    }
+}
