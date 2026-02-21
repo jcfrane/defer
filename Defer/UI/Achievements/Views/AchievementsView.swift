@@ -6,10 +6,13 @@ struct AchievementsView: View {
     private var unlockedAchievements: [Achievement]
 
     @Query(sort: \CompletionHistory.completedAt)
-    private var completions: [CompletionHistory]
+    private var decisions: [CompletionHistory]
 
     @Query(sort: \DeferItem.updatedAt)
     private var defers: [DeferItem]
+
+    @Query(sort: \UrgeLog.loggedAt)
+    private var urgeLogs: [UrgeLog]
 
     @StateObject private var viewModel = AchievementsViewModel()
 
@@ -18,7 +21,7 @@ struct AchievementsView: View {
     }
 
     private var progress: AchievementProgress {
-        viewModel.progress(defers: defers, completions: completions)
+        viewModel.progress(defers: defers, decisions: decisions, urgeLogs: urgeLogs)
     }
 
     private var unlockedDefinitions: [AchievementDefinition] {
@@ -53,11 +56,6 @@ struct AchievementsView: View {
                     VStack(spacing: DeferTheme.spacing(1.75)) {
                         AppPageHeaderView(
                             title: "Achievements",
-                            subtitle: {
-                                Text("Every streak leaves a visible mark.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
-                            }
                         )
 
                         AchievementSummaryCardView(

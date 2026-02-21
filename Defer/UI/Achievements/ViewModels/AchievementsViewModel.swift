@@ -14,8 +14,8 @@ final class AchievementsViewModel: ObservableObject {
         Dictionary(uniqueKeysWithValues: unlockedAchievements.map { ($0.key, $0) })
     }
 
-    func progress(defers: [DeferItem], completions: [CompletionHistory]) -> AchievementProgress {
-        AchievementProgress.from(defers: defers, completions: completions)
+    func progress(defers: [DeferItem], decisions: [CompletionHistory], urgeLogs: [UrgeLog]) -> AchievementProgress {
+        AchievementProgress.from(defers: defers, completions: decisions, urgeLogs: urgeLogs)
     }
 
     func unlockedDefinitions(from unlockedByKey: [String: Achievement]) -> [AchievementDefinition] {
@@ -43,22 +43,26 @@ final class AchievementsViewModel: ObservableObject {
 
     func summaryTitle(unlockedCount: Int) -> String {
         if unlockedCount == 0 {
-            return "Your first badge is waiting"
+            return "Your first decision-quality badge is waiting"
         }
 
         if unlockedCount == AchievementCatalog.all.count {
             return "Full collection complete"
         }
 
-        return "Collection is growing steadily"
+        return "Behavior-quality collection growing"
     }
 
     func summarySubtitle(unlockedCount: Int, progress: AchievementProgress) -> String {
         if unlockedCount == 0 {
-            return "Complete your first defer to unlock your first achievement."
+            return "Resolve one intent intentionally to unlock the first badge."
         }
 
-        return "\(progress.completionCount) completions and a best streak of \(progress.maxStreak) days."
+        let intentionalRate = progress.resolvedCount == 0
+            ? 0
+            : Int((Double(progress.intentionalCount) / Double(progress.resolvedCount) * 100).rounded())
+
+        return "\(progress.intentionalCount) intentional outcomes, \(intentionalRate)% intentional rate."
     }
 
     func showBadge(_ key: String) {

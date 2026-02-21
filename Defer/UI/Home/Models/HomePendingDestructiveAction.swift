@@ -2,7 +2,7 @@ import Foundation
 
 struct HomePendingDestructiveAction: Identifiable {
     enum ActionType {
-        case markFailed
+        case markGaveIn
         case cancel
         case delete
     }
@@ -13,28 +13,34 @@ struct HomePendingDestructiveAction: Identifiable {
 
     var title: String {
         switch action {
-        case .markFailed: return "Mark as failed?"
-        case .cancel: return "Cancel this defer?"
-        case .delete: return "Delete this defer?"
+        case .markGaveIn:
+            return "Record gave in outcome?"
+        case .cancel:
+            return "Cancel this intent?"
+        case .delete:
+            return "Delete this intent?"
         }
     }
 
     var message: String {
         switch action {
-        case .markFailed:
-            return "This will stop the defer and reset momentum."
+        case .markGaveIn:
+            return "This resolves the intent as a reactive choice and moves it to history."
         case .cancel:
-            return "You can still view this in your records if needed."
+            return "This closes the intent without a decision outcome."
         case .delete:
-            return "This permanently removes the defer and related records."
+            return "This permanently removes the intent and related records."
         }
     }
 
     var confirmTitle: String {
         switch action {
-        case .markFailed: return "Mark Failed"
-        case .cancel: return "Cancel Defer"
-        case .delete: return "Delete"
+        case .markGaveIn:
+            return "Record Outcome"
+        case .cancel:
+            return "Cancel Intent"
+        case .delete:
+            return "Delete"
         }
     }
 }

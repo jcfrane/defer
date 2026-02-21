@@ -2,18 +2,21 @@ import Foundation
 import Combine
 
 struct HistorySummaryMetrics {
-    let completionCount: Int
-    let averageDuration: Int
-    let longestDuration: Int
-    let activeDays: Int
-    let latestCompletionDate: Date?
-    let earliestCompletionDate: Date?
+    let decisionCount: Int
+    let intentionalRate: Double
+    let delayAdherenceRate: Double
+    let reflectionRate: Double
+    let impulseSpendAvoided: Double
+    let averageRegretDelta: Double?
+    let latestDecisionDate: Date?
+    let earliestDecisionDate: Date?
 }
 
 struct HistoryCategoryStat: Identifiable {
     let category: DeferCategory
     let count: Int
     let share: Double
+    let intentionalShare: Double
 
     var id: DeferCategory { category }
 }
@@ -21,6 +24,7 @@ struct HistoryCategoryStat: Identifiable {
 struct HistoryMonthStat: Identifiable {
     let monthStart: Date
     let count: Int
+    let intentionalRate: Double
     let relativeIntensity: Double
 
     var id: Date { monthStart }
@@ -28,7 +32,7 @@ struct HistoryMonthStat: Identifiable {
 
 struct HistoryTimelineGroup: Identifiable {
     let monthStart: Date
-    let completions: [CompletionHistory]
+    let decisions: [CompletionHistory]
 
     var id: Date { monthStart }
 }
@@ -36,49 +40,73 @@ struct HistoryTimelineGroup: Identifiable {
 @MainActor
 final class HistoryViewModel: ObservableObject {
     func summaryMetrics(
-        from completions: [CompletionHistory],
+        from decisions: [CompletionHistory],
         calendar: Calendar = .current
     ) -> HistorySummaryMetrics {
-        guard !completions.isEmpty else {
+        guard !decisions.isEmpty else {
             return HistorySummaryMetrics(
-                completionCount: 0,
-                averageDuration: 0,
-                longestDuration: 0,
-                activeDays: 0,
-                latestCompletionDate: nil,
-                earliestCompletionDate: nil
+                decisionCount: 0,
+                intentionalRate: 0,
+                delayAdherenceRate: 0,
+                reflectionRate: 0,
+                impulseSpendAvoided: 0,
+                averageRegretDelta: nil,
+                latestDecisionDate: nil,
+                earliestDecisionDate: nil
             )
         }
 
-        let totalDuration = completions.reduce(0) { $0 + $1.durationDays }
-        let averageDuration = totalDuration / completions.count
-        let longestDuration = completions.map(\.durationDays).max() ?? 0
-        let latestCompletionDate = completions.map(\.completedAt).max()
-        let earliestCompletionDate = completions.map(\.completedAt).min()
-        let activeDays = Set(completions.map { calendar.startOfDay(for: $0.completedAt) }).count
+        let resolved = decisions.filter {
+            $0.outcome != .postponed && $0.outcome != .canceled
+        }
+
+        let intentionalCount = resolved.filter { $0.outcome.isIntentional }.count
+        let intentionalRate = resolved.isEmpty ? 0 : Double(intentionalCount) / Double(resolved.count)
+        let adherenceRate = resolved.isEmpty ? 0 : Double(resolved.filter(\.wasAfterCheckpoint).count) / Double(resolved.count)
+        let reflectionRate = resolved.isEmpty ? 0 : Double(resolved.filter { !($0.reflection?.isEmpty ?? true) }.count) / Double(resolved.count)
+
+        let impulseSpendAvoided = decisions
+            .filter { $0.outcome == .resisted }
+            .reduce(0) { $0 + ($1.estimatedCost ?? 0) }
+
+        let regretSamples = resolved.compactMap { record -> Double? in
+            guard let urge = record.urgeScore, let regret = record.regretScore else { return nil }
+            return Double(regret - urge)
+        }
+
+        let averageRegretDelta = regretSamples.isEmpty
+            ? nil
+            : regretSamples.reduce(0, +) / Double(regretSamples.count)
+
+        let latestDecisionDate = decisions.map(\.completedAt).max()
+        let earliestDecisionDate = decisions.map(\.completedAt).min()
 
         return HistorySummaryMetrics(
-            completionCount: completions.count,
-            averageDuration: averageDuration,
-            longestDuration: longestDuration,
-            activeDays: activeDays,
-            latestCompletionDate: latestCompletionDate,
-            earliestCompletionDate: earliestCompletionDate
+            decisionCount: decisions.count,
+            intentionalRate: intentionalRate,
+            delayAdherenceRate: adherenceRate,
+            reflectionRate: reflectionRate,
+            impulseSpendAvoided: impulseSpendAvoided,
+            averageRegretDelta: averageRegretDelta,
+            latestDecisionDate: latestDecisionDate,
+            earliestDecisionDate: earliestDecisionDate
         )
     }
 
-    func categoryBreakdown(from completions: [CompletionHistory]) -> [HistoryCategoryStat] {
-        guard !completions.isEmpty else { return [] }
+    func categoryBreakdown(from decisions: [CompletionHistory]) -> [HistoryCategoryStat] {
+        guard !decisions.isEmpty else { return [] }
 
-        let totalCount = Double(completions.count)
-        let grouped = Dictionary(grouping: completions, by: \.category)
+        let totalCount = Double(decisions.count)
+        let grouped = Dictionary(grouping: decisions, by: \.category)
 
         return grouped
             .map { category, entries in
-                HistoryCategoryStat(
+                let intentional = entries.filter { $0.outcome.isIntentional }.count
+                return HistoryCategoryStat(
                     category: category,
                     count: entries.count,
-                    share: Double(entries.count) / totalCount
+                    share: Double(entries.count) / totalCount,
+                    intentionalShare: entries.isEmpty ? 0 : Double(intentional) / Double(entries.count)
                 )
             }
             .sorted { lhs, rhs in
@@ -90,7 +118,7 @@ final class HistoryViewModel: ObservableObject {
     }
 
     func monthlyRhythm(
-        from completions: [CompletionHistory],
+        from decisions: [CompletionHistory],
         months: Int = 6,
         calendar: Calendar = .current,
         referenceDate: Date = .now
@@ -104,75 +132,75 @@ final class HistoryViewModel: ObservableObject {
                 calendar.date(byAdding: .month, value: -offset, to: currentMonth)
             }
 
-        let groupedByMonth = Dictionary(grouping: completions) { completion in
-            monthStart(for: completion.completedAt, calendar: calendar)
+        let groupedByMonth = Dictionary(grouping: decisions) { decision in
+            monthStart(for: decision.completedAt, calendar: calendar)
         }
-        .mapValues(\.count)
 
-        let maxCount = monthStarts.map { groupedByMonth[$0] ?? 0 }.max() ?? 0
+        let maxCount = monthStarts.map { groupedByMonth[$0]?.count ?? 0 }.max() ?? 0
 
         return monthStarts.map { month in
-            let count = groupedByMonth[month] ?? 0
-            let relativeIntensity: Double
+            let monthEntries = groupedByMonth[month] ?? []
+            let count = monthEntries.count
+            let resolved = monthEntries.filter { $0.outcome != .postponed && $0.outcome != .canceled }
+            let intentionalRate = resolved.isEmpty
+                ? 0
+                : Double(resolved.filter { $0.outcome.isIntentional }.count) / Double(resolved.count)
 
-            if maxCount == 0 {
-                relativeIntensity = 0
-            } else {
-                relativeIntensity = Double(count) / Double(maxCount)
-            }
+            let relativeIntensity = maxCount == 0 ? 0 : Double(count) / Double(maxCount)
 
             return HistoryMonthStat(
                 monthStart: month,
                 count: count,
+                intentionalRate: intentionalRate,
                 relativeIntensity: relativeIntensity
             )
         }
     }
 
-    func filteredCompletions(
-        from completions: [CompletionHistory],
+    func filteredDecisions(
+        from decisions: [CompletionHistory],
         category: DeferCategory?
     ) -> [CompletionHistory] {
-        guard let category else { return completions }
-        return completions.filter { $0.category == category }
+        guard let category else { return decisions }
+        return decisions.filter { $0.category == category }
     }
 
     func timelineGroups(
-        from completions: [CompletionHistory],
+        from decisions: [CompletionHistory],
         calendar: Calendar = .current
     ) -> [HistoryTimelineGroup] {
-        let grouped = Dictionary(grouping: completions) { completion in
-            monthStart(for: completion.completedAt, calendar: calendar)
+        let grouped = Dictionary(grouping: decisions) { decision in
+            monthStart(for: decision.completedAt, calendar: calendar)
         }
 
         return grouped
             .keys
             .sorted(by: >)
             .map { monthStart in
-                let monthCompletions = (grouped[monthStart] ?? [])
+                let monthDecisions = (grouped[monthStart] ?? [])
                     .sorted { $0.completedAt > $1.completedAt }
 
                 return HistoryTimelineGroup(
                     monthStart: monthStart,
-                    completions: monthCompletions
+                    decisions: monthDecisions
                 )
             }
     }
 
     func historySubtitle(for summary: HistorySummaryMetrics) -> String {
-        guard summary.completionCount > 0,
-              let earliestDate = summary.earliestCompletionDate,
-              let latestDate = summary.latestCompletionDate else {
-            return "No completions yet"
+        guard summary.decisionCount > 0,
+              let earliestDate = summary.earliestDecisionDate,
+              let latestDate = summary.latestDecisionDate else {
+            return "No decisions logged yet"
         }
 
         if Calendar.current.isDate(earliestDate, equalTo: latestDate, toGranularity: .month) {
-            return "All wins from \(Self.monthYearFormatter.string(from: latestDate))"
+            return "All outcomes from \(Self.monthYearFormatter.string(from: latestDate))"
         }
 
         let startText = Self.monthFormatter.string(from: earliestDate)
         let endText = Self.monthYearFormatter.string(from: latestDate)
-        return "\(summary.completionCount) completions from \(startText) to \(endText)"
+        return "\(summary.decisionCount) outcomes from \(startText) to \(endText)"
     }
 
     private func monthStart(for date: Date, calendar: Calendar) -> Date {

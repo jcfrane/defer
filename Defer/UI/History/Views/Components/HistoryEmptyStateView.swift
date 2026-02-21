@@ -23,7 +23,7 @@ struct HistoryEmptyStateView: View {
                     .foregroundStyle(DeferTheme.textPrimary)
                     .multilineTextAlignment(.center)
 
-                Text("Completed defers will appear here with category patterns and streak history.")
+                Text("Decision outcomes will appear here with category patterns and intentionality trends.")
                     .font(.subheadline)
                     .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
                     .multilineTextAlignment(.center)

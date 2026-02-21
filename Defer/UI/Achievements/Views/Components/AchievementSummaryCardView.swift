@@ -142,8 +142,8 @@ private struct AchievementStatChip: View {
             unlockedCount: 3,
             totalCount: AchievementCatalog.all.count,
             completionRatio: 0.38,
-            summaryTitle: "Collection is growing steadily",
-            summarySubtitle: "5 completions and a best streak of 12 days."
+            summaryTitle: "Behavior-quality collection growing",
+            summarySubtitle: "8 intentional outcomes with strong delay adherence."
         )
         .padding()
     }

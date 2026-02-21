@@ -8,7 +8,7 @@ struct HistoryBreakdownSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(1.5)) {
             HStack {
-                Text("Category Energy")
+                Text("Category Mix")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(DeferTheme.textPrimary)
 
@@ -104,6 +104,10 @@ private struct HistoryCategoryMeterRowView: View {
     let isSelected: Bool
     let action: () -> Void
 
+    private var intentionalPercent: Int {
+        Int((stat.intentionalShare * 100).rounded())
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: DeferTheme.spacing(1)) {
@@ -125,7 +129,7 @@ private struct HistoryCategoryMeterRowView: View {
 
                         Spacer()
 
-                        Text("\(Int(stat.share * 100))%")
+                        Text("\(intentionalPercent)% intentional")
                             .font(.caption.weight(.semibold).monospacedDigit())
                             .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
                     }
@@ -169,7 +173,7 @@ private struct HistoryCategoryMeterRowView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(stat.category.displayName), \(stat.count) completions")
+        .accessibilityLabel("\(stat.category.displayName), \(stat.count) outcomes")
         .accessibilityHint("Shows timeline entries for this category")
     }
 }
@@ -180,9 +184,9 @@ private struct HistoryCategoryMeterRowView: View {
 
         HistoryBreakdownSectionView(
             categoryBreakdown: [
-                HistoryCategoryStat(category: .habit, count: 5, share: 0.5),
-                HistoryCategoryStat(category: .health, count: 3, share: 0.3),
-                HistoryCategoryStat(category: .nutrition, count: 2, share: 0.2)
+                HistoryCategoryStat(category: .habit, count: 5, share: 0.5, intentionalShare: 0.6),
+                HistoryCategoryStat(category: .health, count: 3, share: 0.3, intentionalShare: 0.67),
+                HistoryCategoryStat(category: .nutrition, count: 2, share: 0.2, intentionalShare: 0.5)
             ],
             selectedCategory: .habit,
             onSelectCategory: { _ in }

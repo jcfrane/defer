@@ -39,8 +39,8 @@ struct SettingsOnboardingBenefitRowView: View {
         SettingsOnboardingBenefitRowView(
             icon: "checkmark.circle.fill",
             color: DeferTheme.success,
-            title: "Daily check-in reminder",
-            subtitle: "A gentle daily pulse to keep momentum."
+            title: "Checkpoint due reminder",
+            subtitle: "Prompt right when a decision checkpoint arrives."
         )
         .padding()
     }

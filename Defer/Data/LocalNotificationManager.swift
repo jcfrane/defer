@@ -36,13 +36,20 @@ enum LocalNotificationAuthorizationState: Equatable {
 
 struct NotificationPreferences: Equatable {
     var remindersEnabled: Bool
-    var dailyCheckInEnabled: Bool
-    var milestoneEnabled: Bool
-    var targetApproachingEnabled: Bool
+    var checkpointDueEnabled: Bool
+    var midDelayNudgeEnabled: Bool
+    var highRiskWindowEnabled: Bool
+    var postponeConfirmationEnabled: Bool
     var reminderTime: Date
+    var highRiskWindowStart: Date
 
     var hasAnyScheduleEnabled: Bool {
-        remindersEnabled && (dailyCheckInEnabled || milestoneEnabled || targetApproachingEnabled)
+        remindersEnabled && (
+            checkpointDueEnabled ||
+            midDelayNudgeEnabled ||
+            highRiskWindowEnabled ||
+            postponeConfirmationEnabled
+        )
     }
 }
 
@@ -50,9 +57,10 @@ enum LocalNotificationManager {
     private static let center = UNUserNotificationCenter.current()
 
     private enum Identifier {
-        static let dailyCheckIn = "local.daily-check-in"
-        static let milestonePrefix = "local.milestone."
-        static let targetPrefix = "local.target."
+        static let checkpointPrefix = "local.checkpoint."
+        static let midDelayPrefix = "local.mid-delay."
+        static let highRiskDaily = "local.high-risk-window"
+        static let postponePrefix = "local.postpone."
     }
 
     static func authorizationState() async -> LocalNotificationAuthorizationState {
@@ -73,6 +81,7 @@ enum LocalNotificationManager {
 
     static func syncNotifications(preferences: NotificationPreferences, activeItems: [DeferItem]) async {
         let identifiersToRemove = await pendingManagedIdentifiers()
+
         if !preferences.hasAnyScheduleEnabled {
             if !identifiersToRemove.isEmpty {
                 center.removePendingNotificationRequests(withIdentifiers: identifiersToRemove)
@@ -90,17 +99,21 @@ enum LocalNotificationManager {
 
         var requests: [UNNotificationRequest] = []
 
-        if preferences.dailyCheckInEnabled,
-           let daily = makeDailyCheckInRequest(reminderTime: preferences.reminderTime) {
-            requests.append(daily)
+        if preferences.checkpointDueEnabled {
+            requests.append(contentsOf: makeCheckpointDueRequests(for: activeItems))
         }
 
-        if preferences.milestoneEnabled {
-            requests.append(contentsOf: makeMilestoneRequests(for: activeItems, reminderTime: preferences.reminderTime))
+        if preferences.midDelayNudgeEnabled {
+            requests.append(contentsOf: makeMidDelayRequests(for: activeItems))
         }
 
-        if preferences.targetApproachingEnabled {
-            requests.append(contentsOf: makeTargetApproachingRequests(for: activeItems, reminderTime: preferences.reminderTime))
+        if preferences.highRiskWindowEnabled,
+           let highRiskRequest = makeHighRiskWindowRequest(startTime: preferences.highRiskWindowStart) {
+            requests.append(highRiskRequest)
+        }
+
+        if preferences.postponeConfirmationEnabled {
+            requests.append(contentsOf: makePostponeReminderRequests(for: activeItems, reminderTime: preferences.reminderTime))
         }
 
         if !identifiersToRemove.isEmpty {
@@ -117,15 +130,69 @@ enum LocalNotificationManager {
         return requests
             .map(\.identifier)
             .filter { id in
-                id == Identifier.dailyCheckIn
-                    || id.hasPrefix(Identifier.milestonePrefix)
-                    || id.hasPrefix(Identifier.targetPrefix)
+                id.hasPrefix(Identifier.checkpointPrefix)
+                    || id.hasPrefix(Identifier.midDelayPrefix)
+                    || id == Identifier.highRiskDaily
+                    || id.hasPrefix(Identifier.postponePrefix)
             }
     }
 
-    private static func makeDailyCheckInRequest(reminderTime: Date) -> UNNotificationRequest? {
+    private static func makeCheckpointDueRequests(for items: [DeferItem]) -> [UNNotificationRequest] {
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: reminderTime)
+        let eligible = items.filter {
+            $0.status.normalizedLifecycle == .activeWait && $0.targetDate > .now
+        }
+
+        return eligible.compactMap { item in
+            let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: item.targetDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+
+            let content = UNMutableNotificationContent()
+            content.title = "Checkpoint due"
+            content.body = "\(item.title): decide now, postpone, or resist intentionally."
+            content.sound = .default
+            content.userInfo = [
+                "event": DecisionAnalytics.notificationOpened,
+                "intent_id": item.id.uuidString
+            ]
+
+            let identifier = "\(Identifier.checkpointPrefix)\(item.id.uuidString)"
+            return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        }
+    }
+
+    private static func makeMidDelayRequests(for items: [DeferItem]) -> [UNNotificationRequest] {
+        let calendar = Calendar.current
+        let eligible = items.filter {
+            $0.status.normalizedLifecycle == .activeWait &&
+            $0.targetDate > .now &&
+            $0.delayDurationHours >= 24
+        }
+
+        return eligible.compactMap { item in
+            let midpointInterval = item.targetDate.timeIntervalSince(item.startDate) / 2
+            let midpoint = item.startDate.addingTimeInterval(midpointInterval)
+            guard midpoint > .now else { return nil }
+
+            let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: midpoint)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+
+            let content = UNMutableNotificationContent()
+            content.title = "Mid-delay support"
+            content.body = item.fallbackAction?.isEmpty == false
+                ? "Try your fallback: \(item.fallbackAction ?? "")"
+                : "Pause for two breaths and revisit why this matters."
+            content.sound = .default
+
+            let identifier = "\(Identifier.midDelayPrefix)\(item.id.uuidString)"
+            return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        }
+    }
+
+    private static func makeHighRiskWindowRequest(startTime: Date) -> UNNotificationRequest? {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.hour, .minute], from: startTime)
+
         guard let hour = components.hour, let minute = components.minute else {
             return nil
         }
@@ -135,99 +202,45 @@ enum LocalNotificationManager {
         triggerComponents.minute = minute
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: true)
+
         let content = UNMutableNotificationContent()
-        content.title = "Daily check-in"
-        content.body = "Take a moment to protect your streak today."
+        content.title = "High-risk window"
+        content.body = "If an urge hits, capture it first and choose after the delay."
         content.sound = .default
 
-        return UNNotificationRequest(identifier: Identifier.dailyCheckIn, content: content, trigger: trigger)
+        return UNNotificationRequest(identifier: Identifier.highRiskDaily, content: content, trigger: trigger)
     }
 
-    private static func makeMilestoneRequests(for items: [DeferItem], reminderTime: Date) -> [UNNotificationRequest] {
+    private static func makePostponeReminderRequests(for items: [DeferItem], reminderTime: Date) -> [UNNotificationRequest] {
         let calendar = Calendar.current
-        let milestonePercents: [Double] = [0.25, 0.5, 0.75]
-        let validItems = items.filter { $0.status == .active && $0.targetDate > .now }
         let timeComponents = calendar.dateComponents([.hour, .minute], from: reminderTime)
         guard let hour = timeComponents.hour, let minute = timeComponents.minute else {
             return []
         }
 
-        var requests: [UNNotificationRequest] = []
-        for item in validItems {
-            let totalSeconds = item.targetDate.timeIntervalSince(item.startDate)
-            guard totalSeconds > 0 else { continue }
+        let eligible = items.filter {
+            $0.postponeCount > 0 &&
+            $0.status.normalizedLifecycle == .activeWait &&
+            $0.targetDate > .now
+        }
 
-            for percent in milestonePercents {
-                let milestoneDate = item.startDate.addingTimeInterval(totalSeconds * percent)
-                guard milestoneDate > .now else { continue }
-
-                guard let scheduled = calendar.date(
-                    bySettingHour: hour,
-                    minute: minute,
-                    second: 0,
-                    of: milestoneDate
-                ) else {
-                    continue
-                }
-
-                guard scheduled > .now else { continue }
-
-                let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: scheduled)
-                let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-                let content = UNMutableNotificationContent()
-                let percentInt = Int(percent * 100)
-                content.title = "Milestone: \(item.title)"
-                content.body = "You reached \(percentInt)% of your defer timeline. Keep going."
-                content.sound = .default
-
-                let identifier = "\(Identifier.milestonePrefix)\(item.id.uuidString).\(percentInt)"
-                requests.append(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
+        return eligible.compactMap { item in
+            guard let scheduled = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: item.targetDate) else {
+                return nil
             }
+
+            guard scheduled > .now else { return nil }
+
+            let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: scheduled)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+
+            let content = UNMutableNotificationContent()
+            content.title = "Postpone reminder"
+            content.body = "\(item.title) was postponed. Keep the next checkpoint intentional."
+            content.sound = .default
+
+            let identifier = "\(Identifier.postponePrefix)\(item.id.uuidString)"
+            return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         }
-
-        return requests
-    }
-
-    private static func makeTargetApproachingRequests(for items: [DeferItem], reminderTime: Date) -> [UNNotificationRequest] {
-        let calendar = Calendar.current
-        let dayOffsets = [3, 1]
-        let validItems = items.filter { $0.status == .active && $0.targetDate > .now }
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: reminderTime)
-        guard let hour = timeComponents.hour, let minute = timeComponents.minute else {
-            return []
-        }
-
-        var requests: [UNNotificationRequest] = []
-
-        for item in validItems {
-            for offset in dayOffsets {
-                guard let reminderDate = calendar.date(byAdding: .day, value: -offset, to: item.targetDate) else {
-                    continue
-                }
-
-                guard let scheduled = calendar.date(
-                    bySettingHour: hour,
-                    minute: minute,
-                    second: 0,
-                    of: reminderDate
-                ) else {
-                    continue
-                }
-
-                guard scheduled > .now else { continue }
-
-                let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: scheduled)
-                let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
-                let content = UNMutableNotificationContent()
-                content.title = "Target approaching"
-                content.body = "\(item.title) ends in \(offset) day\(offset == 1 ? "" : "s"). Stay locked in."
-                content.sound = .default
-
-                let identifier = "\(Identifier.targetPrefix)\(item.id.uuidString).d\(offset)"
-                requests.append(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger))
-            }
-        }
-
-        return requests
     }
 }

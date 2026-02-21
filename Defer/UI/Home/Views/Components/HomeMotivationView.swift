@@ -20,7 +20,7 @@ struct HomeMotivationView: View {
                     .foregroundStyle(DeferTheme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Writer, \(quoteAuthor)")
+                Text("By \(quoteAuthor)")
                     .font(.footnote)
                     .foregroundStyle(DeferTheme.textMuted)
             }
@@ -54,7 +54,7 @@ struct HomeMotivationView: View {
 
         HomeMotivationView(
             dateText: "Feb 17th",
-            quoteText: "One clean day at a time compounds into identity-level progress.",
+            quoteText: "Pause now. Choose better later.",
             quoteAuthor: "Defer",
             orbGradient: [DeferTheme.moss, DeferTheme.sand]
         )

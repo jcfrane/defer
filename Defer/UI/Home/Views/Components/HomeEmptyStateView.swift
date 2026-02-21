@@ -3,15 +3,16 @@ import SwiftUI
 struct HomeEmptyStateView: View {
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "leaf.circle")
+            Image(systemName: "hourglass.circle")
                 .font(.system(size: 44))
                 .foregroundStyle(DeferTheme.textPrimary)
-            Text("No ongoing defers")
+            Text("No active intents")
                 .font(.headline)
                 .foregroundStyle(DeferTheme.textPrimary)
-            Text("Create your first defer and start building your streak.")
+            Text("Add an intent to get started.")
                 .font(.subheadline)
                 .foregroundStyle(DeferTheme.textMuted)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(30)

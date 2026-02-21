@@ -138,12 +138,12 @@ private extension CGFloat {
 
 #Preview {
     let definition = AchievementCatalog.all.first ?? AchievementDefinition(
-        key: "first_completion",
-        title: "First Win",
-        details: "Complete your first defer.",
+        key: "first_intentional_choice",
+        title: "First Intentional Choice",
+        details: "Resolve one intent with a deliberate outcome.",
         tier: .bronze,
-        icon: "flag.checkered",
-        rule: .minCompletions(1)
+        icon: "sparkles",
+        rule: .minIntentionalDecisions(1)
     )
 
     let item = PreviewFixtures.sampleDefer(

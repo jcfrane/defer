@@ -33,37 +33,144 @@ enum DeferType: String, Codable, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .abstinence: return "Abstinence"
-        case .spending: return "Spending"
+        case .abstinence: return "Behavior"
+        case .spending: return "Purchase"
         case .custom: return "Custom"
         }
     }
 }
 
-enum DeferStatus: String, Codable, CaseIterable, Identifiable {
-    case active
-    case completed
-    case failed
-    case canceled
-    case paused
+enum DelayProtocolType: String, Codable, CaseIterable, Identifiable {
+    case tenMinutes = "10m"
+    case twentyFourHours = "24h"
+    case seventyTwoHours = "72h"
+    case untilPayday = "payday"
+    case customDate = "custom"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .active: return "Active"
-        case .completed: return "Completed"
-        case .failed: return "Failed"
-        case .canceled: return "Canceled"
-        case .paused: return "Paused"
+        case .tenMinutes:
+            return "10 minutes"
+        case .twentyFourHours:
+            return "24 hours"
+        case .seventyTwoHours:
+            return "72 hours"
+        case .untilPayday:
+            return "Until payday"
+        case .customDate:
+            return "Custom date"
+        }
+    }
+
+    var defaultDurationHours: Int {
+        switch self {
+        case .tenMinutes:
+            return 1
+        case .twentyFourHours:
+            return 24
+        case .seventyTwoHours:
+            return 72
+        case .untilPayday:
+            return 24 * 14
+        case .customDate:
+            return 24
+        }
+    }
+}
+
+enum DecisionOutcome: String, Codable, CaseIterable, Identifiable {
+    case resisted = "resisted"
+    case intentionalYes = "intentional_yes"
+    case postponed = "postponed"
+    case gaveIn = "gave_in"
+    case canceled = "canceled"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .resisted:
+            return "Resisted"
+        case .intentionalYes:
+            return "Intentional yes"
+        case .postponed:
+            return "Postponed"
+        case .gaveIn:
+            return "Gave in"
+        case .canceled:
+            return "Canceled"
+        }
+    }
+
+    var isIntentional: Bool {
+        self == .resisted || self == .intentionalYes
+    }
+}
+
+enum DeferStatus: String, Codable, CaseIterable, Identifiable {
+    case activeWait = "active_wait"
+    case checkpointDue = "checkpoint_due"
+    case resolved = "resolved"
+    case canceled = "canceled"
+
+    // Legacy states kept so older previews/tools still compile.
+    case active = "active"
+    case completed = "completed"
+    case failed = "failed"
+    case paused = "paused"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .activeWait:
+            return "In Delay"
+        case .checkpointDue:
+            return "Decision Due"
+        case .resolved:
+            return "Resolved"
+        case .canceled:
+            return "Canceled"
+        case .active:
+            return "Active"
+        case .completed:
+            return "Completed"
+        case .failed:
+            return "Failed"
+        case .paused:
+            return "Paused"
+        }
+    }
+
+    var normalizedLifecycle: DeferStatus {
+        switch self {
+        case .active, .paused:
+            return .activeWait
+        case .completed, .failed:
+            return .resolved
+        case .activeWait, .checkpointDue, .resolved, .canceled:
+            return self
         }
     }
 
     var isTerminal: Bool {
         switch self {
-        case .completed, .failed, .canceled:
+        case .resolved, .canceled, .completed, .failed:
             return true
-        case .active, .paused:
+        case .activeWait, .checkpointDue, .active, .paused:
+            return false
+        }
+    }
+
+    var isDecisionPending: Bool {
+        switch normalizedLifecycle {
+        case .activeWait, .checkpointDue:
+            return true
+        case .resolved, .canceled:
+            return false
+        default:
             return false
         }
     }

@@ -3,29 +3,29 @@ import SwiftUI
 
 struct HistoryView: View {
     @Query(sort: \CompletionHistory.completedAt, order: .reverse)
-    private var completions: [CompletionHistory]
+    private var decisions: [CompletionHistory]
 
     @StateObject private var viewModel = HistoryViewModel()
     @State private var selectedCategory: DeferCategory?
 
     private var summary: HistorySummaryMetrics {
-        viewModel.summaryMetrics(from: completions)
+        viewModel.summaryMetrics(from: decisions)
     }
 
     private var categoryBreakdown: [HistoryCategoryStat] {
-        viewModel.categoryBreakdown(from: completions)
+        viewModel.categoryBreakdown(from: decisions)
     }
 
     private var monthlyRhythm: [HistoryMonthStat] {
-        viewModel.monthlyRhythm(from: completions)
+        viewModel.monthlyRhythm(from: decisions)
     }
 
-    private var filteredCompletions: [CompletionHistory] {
-        viewModel.filteredCompletions(from: completions, category: selectedCategory)
+    private var filteredDecisions: [CompletionHistory] {
+        viewModel.filteredDecisions(from: decisions, category: selectedCategory)
     }
 
     private var timelineGroups: [HistoryTimelineGroup] {
-        viewModel.timelineGroups(from: filteredCompletions)
+        viewModel.timelineGroups(from: filteredDecisions)
     }
 
     private var subtitle: String {
@@ -50,7 +50,7 @@ struct HistoryView: View {
                                     .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
                             },
                             trailing: {
-                                Label("\(summary.completionCount)", systemImage: "sparkles")
+                                Label("\(summary.decisionCount)", systemImage: "sparkles")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(DeferTheme.textPrimary)
                                     .padding(.horizontal, 12)
@@ -59,7 +59,7 @@ struct HistoryView: View {
                             }
                         )
 
-                        if completions.isEmpty {
+                        if decisions.isEmpty {
                             HistoryEmptyStateView()
                         } else {
                             HistorySummarySectionView(

@@ -15,9 +15,12 @@ final class AchievementEngine {
 
         let deferDescriptor = FetchDescriptor<DeferItem>()
         let completionDescriptor = FetchDescriptor<CompletionHistory>()
+        let urgeDescriptor = FetchDescriptor<UrgeLog>()
+
         let progress = AchievementProgress.from(
             defers: try context.fetch(deferDescriptor),
-            completions: try context.fetch(completionDescriptor)
+            completions: try context.fetch(completionDescriptor),
+            urgeLogs: try context.fetch(urgeDescriptor)
         )
 
         var unlocked: [Achievement] = []

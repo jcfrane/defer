@@ -7,7 +7,9 @@ enum DeferModelContainer {
             StreakRecord.self,
             CompletionHistory.self,
             Achievement.self,
-            Quote.self
+            Quote.self,
+            UrgeLog.self,
+            RewardLedgerEntry.self
         ])
 
         let configuration = ModelConfiguration(isStoredInMemoryOnly: inMemory)

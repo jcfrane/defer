@@ -5,6 +5,8 @@ import UIKit
 struct SettingsView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \DeferItem.targetDate) private var deferItems: [DeferItem]
+    @Query(sort: \CompletionHistory.completedAt, order: .reverse) private var completions: [CompletionHistory]
+    @Query(sort: \Achievement.unlockedAt, order: .reverse) private var achievements: [Achievement]
 
     @StateObject private var viewModel = SettingsViewModel()
 
@@ -21,7 +23,7 @@ struct SettingsView: View {
                         AppPageHeaderView(
                             title: "Settings",
                             subtitle: {
-                                Text("Shape reminders around your rhythm, not your stress.")
+                                Text("Shape reminders around checkpoints and high-risk windows.")
                                     .font(.subheadline)
                                     .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
                             }
@@ -29,6 +31,8 @@ struct SettingsView: View {
 
                         notificationOverviewCard
                         notificationCard
+                        behaviorCard
+                        backupExportCard
                     }
                     .padding(.horizontal, DeferTheme.spacing(2))
                     .padding(.top, DeferTheme.spacing(1.5))
@@ -38,39 +42,62 @@ struct SettingsView: View {
             .sheet(isPresented: $viewModel.showNotificationOnboarding) {
                 notificationOnboardingSheet
             }
+            .sheet(
+                isPresented: Binding(
+                    get: { viewModel.exportFileURL != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            viewModel.clearExportFile()
+                        }
+                    }
+                )
+            ) {
+                if let exportFileURL = viewModel.exportFileURL {
+                    SettingsShareSheetView(activityItems: [exportFileURL])
+                }
+            }
+            .alert(
+                "Export failed",
+                isPresented: Binding(
+                    get: { viewModel.exportErrorMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            viewModel.clearExportError()
+                        }
+                    }
+                ),
+                actions: {},
+                message: {
+                    Text(viewModel.exportErrorMessage ?? "Unknown error")
+                }
+            )
             .task {
                 await refreshNotificationState()
                 await syncNotifications()
             }
             .onChange(of: viewModel.remindersEnabled) { _, _ in
-                Task {
-                    await handleRemindersToggleChanged()
-                }
+                Task { await handleRemindersToggleChanged() }
             }
-            .onChange(of: viewModel.dailyCheckInEnabled) { _, _ in
-                Task {
-                    await syncNotifications()
-                }
+            .onChange(of: viewModel.checkpointDueEnabled) { _, _ in
+                Task { await syncNotifications() }
             }
-            .onChange(of: viewModel.milestoneEnabled) { _, _ in
-                Task {
-                    await syncNotifications()
-                }
+            .onChange(of: viewModel.midDelayNudgeEnabled) { _, _ in
+                Task { await syncNotifications() }
             }
-            .onChange(of: viewModel.targetApproachingEnabled) { _, _ in
-                Task {
-                    await syncNotifications()
-                }
+            .onChange(of: viewModel.highRiskWindowEnabled) { _, _ in
+                Task { await syncNotifications() }
+            }
+            .onChange(of: viewModel.postponeConfirmationEnabled) { _, _ in
+                Task { await syncNotifications() }
             }
             .onChange(of: viewModel.reminderTimeInterval) { _, _ in
-                Task {
-                    await syncNotifications()
-                }
+                Task { await syncNotifications() }
+            }
+            .onChange(of: viewModel.highRiskWindowStartInterval) { _, _ in
+                Task { await syncNotifications() }
             }
             .onChange(of: activeItemRescheduleSignature) { _, _ in
-                Task {
-                    await syncNotifications()
-                }
+                Task { await syncNotifications() }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
@@ -87,10 +114,7 @@ struct SettingsView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            DeferTheme.accent.opacity(0.18),
-                            .clear
-                        ],
+                        colors: [DeferTheme.accent.opacity(0.18), .clear],
                         center: .center,
                         startRadius: 10,
                         endRadius: 180
@@ -103,10 +127,7 @@ struct SettingsView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            DeferTheme.success.opacity(0.16),
-                            .clear
-                        ],
+                        colors: [DeferTheme.success.opacity(0.16), .clear],
                         center: .center,
                         startRadius: 8,
                         endRadius: 170
@@ -134,7 +155,7 @@ struct SettingsView: View {
                 Text(reminderProfileSubtitle)
                     .font(.footnote)
                     .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
-                    .lineLimit(2)
+                    .lineLimit(3)
 
                 HStack(spacing: DeferTheme.spacing(0.75)) {
                     SettingsInfoChipView(
@@ -156,10 +177,7 @@ struct SettingsView: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [
-                                DeferTheme.accent.opacity(0.95),
-                                DeferTheme.warning.opacity(0.92)
-                            ],
+                            colors: [DeferTheme.accent.opacity(0.95), DeferTheme.warning.opacity(0.92)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -177,10 +195,7 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.13),
-                            Color.white.opacity(0.05)
-                        ],
+                        colors: [Color.white.opacity(0.13), Color.white.opacity(0.05)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -214,6 +229,72 @@ struct SettingsView: View {
             case .denied, .unknown:
                 notificationDeniedCard
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DeferTheme.spacing(2.25))
+        .glassCard()
+    }
+
+    private var behaviorCard: some View {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.25)) {
+            Text("Decision Behavior")
+                .font(.headline)
+                .foregroundStyle(DeferTheme.textPrimary)
+
+            reminderTypeRow(
+                icon: "text.book.closed.fill",
+                iconTint: DeferTheme.success,
+                title: "Prompt for reflection",
+                subtitle: "Ask for a short reflection when recording outcomes.",
+                isOn: reflectionPromptToggleBinding
+            )
+
+            reminderTypeRow(
+                icon: "quote.bubble.fill",
+                iconTint: DeferTheme.warning,
+                title: "Show why-it-matters reminders",
+                subtitle: "Display your reason in Home and Detail as a focus prompt.",
+                isOn: whyReminderToggleBinding
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DeferTheme.spacing(2.25))
+        .glassCard()
+    }
+
+    private var backupExportCard: some View {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1.25)) {
+            Text("Data Backup")
+                .font(.headline)
+                .foregroundStyle(DeferTheme.textPrimary)
+
+            Text("Export local intent, outcome, and achievement data as JSON or CSV.")
+                .font(.footnote)
+                .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
+
+            HStack(spacing: DeferTheme.spacing(1)) {
+                Button {
+                    exportBackup(.json)
+                } label: {
+                    Label("Export JSON", systemImage: "doc.text.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(DeferTheme.accent)
+
+                Button {
+                    exportBackup(.csv)
+                } label: {
+                    Label("Export CSV", systemImage: "tablecells.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(DeferTheme.success)
+            }
+
+            Text(exportSummaryText)
+                .font(.caption)
+                .foregroundStyle(DeferTheme.textMuted.opacity(0.74))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DeferTheme.spacing(2.25))
@@ -254,7 +335,6 @@ struct SettingsView: View {
                     VStack(spacing: DeferTheme.spacing(1.75)) {
                         onboardingHeroCard
                         onboardingBenefitsCard
-                        onboardingPreviewCard
                     }
                     .padding(.horizontal, DeferTheme.spacing(2))
                     .padding(.top, DeferTheme.spacing(0.5))
@@ -302,10 +382,7 @@ struct SettingsView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            DeferTheme.success.opacity(0.22),
-                            .clear
-                        ],
+                        colors: [DeferTheme.success.opacity(0.22), .clear],
                         center: .center,
                         startRadius: 10,
                         endRadius: 230
@@ -317,10 +394,7 @@ struct SettingsView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            DeferTheme.accent.opacity(0.18),
-                            .clear
-                        ],
+                        colors: [DeferTheme.accent.opacity(0.18), .clear],
                         center: .center,
                         startRadius: 8,
                         endRadius: 200
@@ -336,11 +410,11 @@ struct SettingsView: View {
     private var onboardingHeroCard: some View {
         HStack(alignment: .top, spacing: DeferTheme.spacing(1.5)) {
             VStack(alignment: .leading, spacing: DeferTheme.spacing(0.75)) {
-                Text("Stay Consistent")
+                Text("Support At Decision Moments")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(DeferTheme.textPrimary)
 
-                Text("Turn on notifications to protect your streak with precise timing and lightweight nudges.")
+                Text("Enable notifications to get nudges exactly when checkpoints and high-risk windows occur.")
                     .font(.body)
                     .foregroundStyle(DeferTheme.textMuted.opacity(0.84))
                     .fixedSize(horizontal: false, vertical: true)
@@ -377,22 +451,28 @@ struct SettingsView: View {
                 .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
 
             SettingsOnboardingBenefitRowView(
-                icon: "checkmark.circle.fill",
+                icon: "clock.badge.checkmark",
                 color: DeferTheme.success,
-                title: "Daily check-in reminder",
-                subtitle: "A gentle daily pulse to keep momentum."
+                title: "Checkpoint due reminders",
+                subtitle: "Prompt when it is time to decide."
             )
             SettingsOnboardingBenefitRowView(
-                icon: "flag.fill",
+                icon: "hourglass",
                 color: DeferTheme.warning,
-                title: "Milestone progress reminders",
-                subtitle: "Celebrate 25%, 50%, and 75% progress marks."
+                title: "Mid-delay support nudges",
+                subtitle: "Encourage fallback actions during longer waits."
+            )
+            SettingsOnboardingBenefitRowView(
+                icon: "bell.badge",
+                color: DeferTheme.accent,
+                title: "High-risk time prompts",
+                subtitle: "Daily reminder before your configured risk window."
             )
             SettingsOnboardingBenefitRowView(
                 icon: "calendar.badge.clock",
-                color: DeferTheme.accent,
-                title: "Target-date approaching alerts",
-                subtitle: "Heads-up at 3 days and 1 day remaining."
+                color: DeferTheme.warning,
+                title: "Postpone follow-up reminders",
+                subtitle: "Keep postponed checkpoints from slipping away."
             )
         }
         .padding(DeferTheme.spacing(2))
@@ -402,30 +482,6 @@ struct SettingsView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                )
-        )
-    }
-
-    private var onboardingPreviewCard: some View {
-        VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
-            Text("Preview")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
-
-            HStack(spacing: DeferTheme.spacing(0.75)) {
-                SettingsInfoChipView(icon: "clock.fill", text: reminderTimeText, color: DeferTheme.warning)
-                SettingsInfoChipView(icon: "sparkles", text: "Smart timing", color: DeferTheme.success)
-                SettingsInfoChipView(icon: "calendar", text: "Ahead alerts", color: DeferTheme.accent)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(DeferTheme.spacing(1.5))
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black.opacity(0.16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
     }
@@ -481,7 +537,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Enable reminder schedule")
                             .foregroundStyle(DeferTheme.textPrimary)
-                        Text("Turn all reminders on or off in one switch.")
+                        Text("Turn all reminder types on or off together.")
                             .font(.caption)
                             .foregroundStyle(DeferTheme.textMuted.opacity(0.75))
                     }
@@ -500,23 +556,40 @@ struct SettingsView: View {
                         SettingsIconOrbView(systemName: "clock.fill", tint: DeferTheme.warning)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Reminder time")
+                            Text("Checkpoint reminder time")
                                 .foregroundStyle(DeferTheme.textPrimary)
-                            Text("Used by every enabled reminder type.")
+                            Text("Used for postpone follow-up reminders.")
                                 .font(.caption)
                                 .foregroundStyle(DeferTheme.textMuted.opacity(0.75))
                         }
 
                         Spacer(minLength: 0)
 
-                        DatePicker(
-                            "",
-                            selection: reminderTimeBinding,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                        .tint(DeferTheme.accent)
+                        DatePicker("", selection: reminderTimeBinding, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .tint(DeferTheme.accent)
+                    }
+                }
+
+                panel {
+                    HStack(spacing: DeferTheme.spacing(1)) {
+                        SettingsIconOrbView(systemName: "moon.stars.fill", tint: DeferTheme.warning)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("High-risk window start")
+                                .foregroundStyle(DeferTheme.textPrimary)
+                            Text("Daily nudge time before typical impulse periods.")
+                                .font(.caption)
+                                .foregroundStyle(DeferTheme.textMuted.opacity(0.75))
+                        }
+
+                        Spacer(minLength: 0)
+
+                        DatePicker("", selection: highRiskWindowStartBinding, displayedComponents: .hourAndMinute)
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .tint(DeferTheme.accent)
                     }
                 }
 
@@ -526,27 +599,35 @@ struct SettingsView: View {
                         .foregroundStyle(DeferTheme.textPrimary)
 
                     reminderTypeRow(
-                        icon: "checkmark.circle.fill",
+                        icon: "clock.badge.checkmark",
                         iconTint: DeferTheme.success,
-                        title: "Daily check-in",
-                        subtitle: "One reminder every day to protect your streak.",
-                        isOn: dailyCheckInToggleBinding
+                        title: "Checkpoint due",
+                        subtitle: "Alert when an intent reaches decision time.",
+                        isOn: checkpointDueToggleBinding
                     )
 
                     reminderTypeRow(
-                        icon: "flag.fill",
+                        icon: "hourglass",
                         iconTint: DeferTheme.warning,
-                        title: "Progress milestones",
-                        subtitle: "Nudges at 25%, 50%, and 75% of each defer.",
-                        isOn: milestoneToggleBinding
+                        title: "Mid-delay support",
+                        subtitle: "Nudge during long waits to use fallback actions.",
+                        isOn: midDelayToggleBinding
+                    )
+
+                    reminderTypeRow(
+                        icon: "bell.badge",
+                        iconTint: DeferTheme.accent,
+                        title: "High-risk window",
+                        subtitle: "Daily support prompt at your configured time.",
+                        isOn: highRiskToggleBinding
                     )
 
                     reminderTypeRow(
                         icon: "calendar.badge.clock",
-                        iconTint: DeferTheme.accent,
-                        title: "Target date approaching",
-                        subtitle: "Alerts 3 days and 1 day before the target date.",
-                        isOn: targetApproachingToggleBinding
+                        iconTint: DeferTheme.warning,
+                        title: "Postpone follow-up",
+                        subtitle: "Remind when postponed checkpoints approach.",
+                        isOn: postponeToggleBinding
                     )
                 }
 
@@ -569,7 +650,7 @@ struct SettingsView: View {
                         Text("Notifications are not set up yet.")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(DeferTheme.textPrimary)
-                        Text("Enable permissions and start with a clean reminder setup.")
+                        Text("Enable permissions and start with decision-timed reminders.")
                             .font(.footnote)
                             .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
                     }
@@ -612,48 +693,64 @@ struct SettingsView: View {
 
     private var reminderTimeBinding: Binding<Date> {
         Binding(
-            get: {
-                Date(timeIntervalSinceReferenceDate: viewModel.reminderTimeInterval)
-            },
-            set: { value in
-                viewModel.setReminderTime(value)
-            }
+            get: { Date(timeIntervalSinceReferenceDate: viewModel.reminderTimeInterval) },
+            set: { value in viewModel.setReminderTime(value) }
+        )
+    }
+
+    private var highRiskWindowStartBinding: Binding<Date> {
+        Binding(
+            get: { Date(timeIntervalSinceReferenceDate: viewModel.highRiskWindowStartInterval) },
+            set: { value in viewModel.setHighRiskWindowStart(value) }
         )
     }
 
     private var remindersToggleBinding: Binding<Bool> {
         Binding(
             get: { viewModel.remindersEnabled },
-            set: { value in
-                viewModel.setRemindersEnabled(value)
-            }
+            set: { value in viewModel.setRemindersEnabled(value) }
         )
     }
 
-    private var dailyCheckInToggleBinding: Binding<Bool> {
+    private var checkpointDueToggleBinding: Binding<Bool> {
         Binding(
-            get: { viewModel.dailyCheckInEnabled },
-            set: { value in
-                viewModel.setDailyCheckInEnabled(value)
-            }
+            get: { viewModel.checkpointDueEnabled },
+            set: { value in viewModel.setCheckpointDueEnabled(value) }
         )
     }
 
-    private var milestoneToggleBinding: Binding<Bool> {
+    private var midDelayToggleBinding: Binding<Bool> {
         Binding(
-            get: { viewModel.milestoneEnabled },
-            set: { value in
-                viewModel.setMilestoneEnabled(value)
-            }
+            get: { viewModel.midDelayNudgeEnabled },
+            set: { value in viewModel.setMidDelayNudgeEnabled(value) }
         )
     }
 
-    private var targetApproachingToggleBinding: Binding<Bool> {
+    private var highRiskToggleBinding: Binding<Bool> {
         Binding(
-            get: { viewModel.targetApproachingEnabled },
-            set: { value in
-                viewModel.setTargetApproachingEnabled(value)
-            }
+            get: { viewModel.highRiskWindowEnabled },
+            set: { value in viewModel.setHighRiskWindowEnabled(value) }
+        )
+    }
+
+    private var postponeToggleBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.postponeConfirmationEnabled },
+            set: { value in viewModel.setPostponeConfirmationEnabled(value) }
+        )
+    }
+
+    private var reflectionPromptToggleBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.reflectionPromptEnabled },
+            set: { value in viewModel.setReflectionPromptEnabled(value) }
+        )
+    }
+
+    private var whyReminderToggleBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.whyReminderEnabled },
+            set: { value in viewModel.setWhyReminderEnabled(value) }
         )
     }
 
@@ -695,6 +792,13 @@ struct SettingsView: View {
 
     private var authorizationDetailText: String {
         viewModel.authorizationDetailText
+    }
+
+    private var exportSummaryText: String {
+        let deferCount = deferItems.count
+        let completionCount = completions.count
+        let achievementCount = achievements.count
+        return "Includes \(deferCount) intents, \(completionCount) outcome entries, and \(achievementCount) achievements."
     }
 
     private func panel<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -740,7 +844,10 @@ struct SettingsView: View {
     }
 
     private var activeItems: [DeferItem] {
-        deferItems.filter { $0.status == .active }
+        deferItems.filter {
+            let status = $0.status.normalizedLifecycle
+            return status == .activeWait || status == .checkpointDue
+        }
     }
 
     private var activeItemRescheduleSignature: [String] {
@@ -751,7 +858,9 @@ struct SettingsView: View {
                     item.id.uuidString,
                     String(item.targetDate.timeIntervalSinceReferenceDate),
                     String(item.startDate.timeIntervalSinceReferenceDate),
-                    String(item.updatedAt.timeIntervalSinceReferenceDate)
+                    String(item.updatedAt.timeIntervalSinceReferenceDate),
+                    item.delayProtocolType.rawValue,
+                    String(item.postponeCount)
                 ].joined(separator: "|")
             }
     }
@@ -770,6 +879,15 @@ struct SettingsView: View {
 
     private func syncNotifications() async {
         await viewModel.syncNotifications(activeItems: activeItems)
+    }
+
+    private func exportBackup(_ format: DataExportFormat) {
+        viewModel.exportBackup(
+            format: format,
+            defers: deferItems,
+            completions: completions,
+            achievements: achievements
+        )
     }
 
     private func openSystemSettings() {

@@ -4,9 +4,9 @@ struct HistorySummarySectionView: View {
     let summary: HistorySummaryMetrics
     let monthlyRhythm: [HistoryMonthStat]
 
-    private var latestCompletionLabel: String {
-        guard let latestDate = summary.latestCompletionDate else {
-            return "No recent completion"
+    private var latestDecisionLabel: String {
+        guard let latestDate = summary.latestDecisionDate else {
+            return "No recent decision"
         }
 
         let relative = Self.relativeFormatter.localizedString(for: latestDate, relativeTo: .now)
@@ -17,15 +17,15 @@ struct HistorySummarySectionView: View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(1.75)) {
             HStack(alignment: .top, spacing: DeferTheme.spacing(1.5)) {
                 VStack(alignment: .leading, spacing: DeferTheme.spacing(0.5)) {
-                    Text("Completion Pulse")
+                    Text("Decision Pulse")
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.84))
 
-                    Text("\(summary.completionCount)")
+                    Text("\(summary.decisionCount)")
                         .font(.system(size: 52, weight: .black, design: .rounded).monospacedDigit())
                         .foregroundStyle(DeferTheme.textPrimary)
 
-                    Text(summary.completionCount == 1 ? "win logged" : "wins logged")
+                    Text(summary.decisionCount == 1 ? "outcome logged" : "outcomes logged")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
                 }
@@ -33,15 +33,15 @@ struct HistorySummarySectionView: View {
                 Spacer(minLength: DeferTheme.spacing(1))
 
                 VStack(alignment: .trailing, spacing: DeferTheme.spacing(0.75)) {
-                    Text("Avg")
+                    Text("Intentional")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
 
-                    Text("\(summary.averageDuration)d")
+                    Text(percent(summary.intentionalRate))
                         .font(.title.weight(.heavy).monospacedDigit())
                         .foregroundStyle(DeferTheme.textPrimary)
 
-                    Text(latestCompletionLabel)
+                    Text(latestDecisionLabel)
                         .font(.caption)
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
                         .multilineTextAlignment(.trailing)
@@ -60,23 +60,23 @@ struct HistorySummarySectionView: View {
 
             HStack(spacing: DeferTheme.spacing(1)) {
                 historyMetricPill(
-                    title: "Longest",
-                    value: "\(summary.longestDuration)d",
-                    icon: "flame.fill",
+                    title: "Delay Honored",
+                    value: percent(summary.delayAdherenceRate),
+                    icon: "clock.badge.checkmark",
                     accent: DeferTheme.warning
                 )
 
                 historyMetricPill(
-                    title: "Active Days",
-                    value: "\(summary.activeDays)",
-                    icon: "calendar.badge.checkmark",
+                    title: "Reflection",
+                    value: percent(summary.reflectionRate),
+                    icon: "text.book.closed.fill",
                     accent: DeferTheme.success
                 )
 
                 historyMetricPill(
-                    title: "Average",
-                    value: "\(summary.averageDuration)d",
-                    icon: "clock.arrow.circlepath",
+                    title: "Spend Avoided",
+                    value: "$\(Int(summary.impulseSpendAvoided.rounded()))",
+                    icon: "dollarsign.circle.fill",
                     accent: DeferTheme.accent
                 )
             }
@@ -95,14 +95,15 @@ struct HistorySummarySectionView: View {
         .background(summaryBackground)
     }
 
+    private func percent(_ value: Double) -> String {
+        "\(Int((value * 100).rounded()))%"
+    }
+
     private var summaryBackground: some View {
         RoundedRectangle(cornerRadius: DeferTheme.cardCornerRadius, style: .continuous)
             .fill(
                 LinearGradient(
-                    colors: [
-                        DeferTheme.surface.opacity(0.9),
-                        DeferTheme.surface.opacity(0.72)
-                    ],
+                    colors: [DeferTheme.surface.opacity(0.9), DeferTheme.surface.opacity(0.72)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -203,8 +204,13 @@ private struct HistoryMonthlyRhythmView: View {
             )
         }
 
+        let intentOpacity = 0.45 + (month.intentionalRate * 0.45)
+
         return LinearGradient(
-            colors: [DeferTheme.warning.opacity(0.55 + (intensity * 0.3)), DeferTheme.success.opacity(0.9)],
+            colors: [
+                DeferTheme.warning.opacity(intentOpacity),
+                DeferTheme.success.opacity(0.9)
+            ],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -223,20 +229,22 @@ private struct HistoryMonthlyRhythmView: View {
 
         HistorySummarySectionView(
             summary: HistorySummaryMetrics(
-                completionCount: 12,
-                averageDuration: 18,
-                longestDuration: 46,
-                activeDays: 10,
-                latestCompletionDate: Calendar.current.date(byAdding: .day, value: -2, to: .now),
-                earliestCompletionDate: Calendar.current.date(byAdding: .month, value: -5, to: .now)
+                decisionCount: 12,
+                intentionalRate: 0.66,
+                delayAdherenceRate: 0.71,
+                reflectionRate: 0.42,
+                impulseSpendAvoided: 186,
+                averageRegretDelta: -1.3,
+                latestDecisionDate: Calendar.current.date(byAdding: .day, value: -2, to: .now),
+                earliestDecisionDate: Calendar.current.date(byAdding: .month, value: -5, to: .now)
             ),
             monthlyRhythm: [
-                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -5, to: .now) ?? .now, count: 1, relativeIntensity: 0.25),
-                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -4, to: .now) ?? .now, count: 2, relativeIntensity: 0.5),
-                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -3, to: .now) ?? .now, count: 0, relativeIntensity: 0),
-                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -2, to: .now) ?? .now, count: 3, relativeIntensity: 0.75),
-                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now, count: 4, relativeIntensity: 1),
-                HistoryMonthStat(monthStart: .now, count: 2, relativeIntensity: 0.5)
+                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -5, to: .now) ?? .now, count: 1, intentionalRate: 0.5, relativeIntensity: 0.25),
+                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -4, to: .now) ?? .now, count: 2, intentionalRate: 0.45, relativeIntensity: 0.5),
+                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -3, to: .now) ?? .now, count: 0, intentionalRate: 0.0, relativeIntensity: 0),
+                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -2, to: .now) ?? .now, count: 3, intentionalRate: 0.66, relativeIntensity: 0.75),
+                HistoryMonthStat(monthStart: Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now, count: 4, intentionalRate: 0.75, relativeIntensity: 1),
+                HistoryMonthStat(monthStart: .now, count: 2, intentionalRate: 0.5, relativeIntensity: 0.5)
             ]
         )
         .padding()

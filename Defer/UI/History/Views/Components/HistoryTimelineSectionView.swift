@@ -32,11 +32,11 @@ struct HistoryTimelineSectionView: View {
 
             if timelineGroups.isEmpty {
                 VStack(alignment: .leading, spacing: DeferTheme.spacing(0.75)) {
-                    Text("No completions in this filter")
+                    Text("No outcomes in this filter")
                         .font(.headline)
                         .foregroundStyle(DeferTheme.textPrimary)
 
-                    Text("Try another category or view all completions.")
+                    Text("Try another category or view all outcomes.")
                         .font(.subheadline)
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
                 }
@@ -56,10 +56,10 @@ struct HistoryTimelineSectionView: View {
                                 .padding(.horizontal, 4)
 
                             VStack(spacing: DeferTheme.spacing(1)) {
-                                ForEach(Array(group.completions.enumerated()), id: \.element.id) { index, completion in
+                                ForEach(Array(group.decisions.enumerated()), id: \.element.id) { index, decision in
                                     HistoryTimelineItemRowView(
-                                        completion: completion,
-                                        showConnector: index != group.completions.count - 1
+                                        decision: decision,
+                                        showConnector: index != group.decisions.count - 1
                                     )
                                 }
                             }
@@ -73,7 +73,7 @@ struct HistoryTimelineSectionView: View {
     }
 
     private var totalCount: Int {
-        timelineGroups.reduce(0) { $0 + $1.completions.count }
+        timelineGroups.reduce(0) { $0 + $1.decisions.count }
     }
 
     private var overviewLabel: String {
@@ -81,7 +81,7 @@ struct HistoryTimelineSectionView: View {
             return "\(totalCount) in \(selectedCategory.displayName)"
         }
 
-        return totalCount == 1 ? "1 completion" : "\(totalCount) completions"
+        return totalCount == 1 ? "1 outcome" : "\(totalCount) outcomes"
     }
 
     private static let monthFormatter: DateFormatter = {
@@ -92,7 +92,7 @@ struct HistoryTimelineSectionView: View {
 }
 
 private struct HistoryTimelineItemRowView: View {
-    let completion: CompletionHistory
+    let decision: CompletionHistory
     let showConnector: Bool
 
     var body: some View {
@@ -100,10 +100,10 @@ private struct HistoryTimelineItemRowView: View {
             VStack(spacing: 0) {
                 ZStack {
                     Circle()
-                        .fill(DeferTheme.success.opacity(0.28))
+                        .fill(DeferTheme.outcomeColor(for: decision.outcome).opacity(0.28))
                         .frame(width: 24, height: 24)
 
-                    Image(systemName: DeferTheme.categoryIcon(for: completion.category))
+                    Image(systemName: DeferTheme.categoryIcon(for: decision.category))
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(DeferTheme.textPrimary)
                 }
@@ -124,14 +124,14 @@ private struct HistoryTimelineItemRowView: View {
 
             VStack(alignment: .leading, spacing: DeferTheme.spacing(0.9)) {
                 HStack(alignment: .top, spacing: 8) {
-                    Text(completion.deferTitle)
+                    Text(decision.deferTitle)
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(DeferTheme.textPrimary)
                         .lineLimit(2)
 
                     Spacer(minLength: 8)
 
-                    Text(completion.completedAt, format: .dateTime.month(.wide).day().year())
+                    Text(decision.completedAt, format: .dateTime.month(.wide).day().year())
                         .font(.caption.weight(.medium))
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.76))
                         .multilineTextAlignment(.trailing)
@@ -139,15 +139,15 @@ private struct HistoryTimelineItemRowView: View {
 
                 HStack(spacing: 6) {
                     timelineTag(
-                        title: completion.category.displayName,
-                        icon: DeferTheme.categoryIcon(for: completion.category),
-                        tint: DeferTheme.success
+                        title: decision.outcome.displayName,
+                        icon: icon(for: decision.outcome),
+                        tint: DeferTheme.outcomeColor(for: decision.outcome)
                     )
 
                     timelineTag(
-                        title: "\(completion.durationDays)d",
-                        icon: "timer",
-                        tint: DeferTheme.warning
+                        title: decision.category.displayName,
+                        icon: DeferTheme.categoryIcon(for: decision.category),
+                        tint: DeferTheme.success
                     )
                 }
 
@@ -171,11 +171,15 @@ private struct HistoryTimelineItemRowView: View {
     }
 
     private var summaryText: String {
-        guard let summary = completion.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty else {
-            return "Completed in \(completion.durationDays) days."
+        if let reflection = decision.reflection?.trimmingCharacters(in: .whitespacesAndNewlines), !reflection.isEmpty {
+            return reflection
         }
 
-        return summary
+        if let summary = decision.summary?.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
+            return summary
+        }
+
+        return "Recorded as \(decision.outcome.displayName.lowercased())."
     }
 
     private func timelineTag(title: String, icon: String, tint: Color) -> some View {
@@ -189,10 +193,22 @@ private struct HistoryTimelineItemRowView: View {
         .foregroundStyle(DeferTheme.textPrimary)
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(
-            Capsule()
-                .fill(tint.opacity(0.32))
-        )
+        .background(Capsule().fill(tint.opacity(0.32)))
+    }
+
+    private func icon(for outcome: DecisionOutcome) -> String {
+        switch outcome {
+        case .resisted:
+            return "shield.checkered"
+        case .intentionalYes:
+            return "checkmark.seal.fill"
+        case .postponed:
+            return "calendar.badge.clock"
+        case .gaveIn:
+            return "xmark.circle.fill"
+        case .canceled:
+            return "minus.circle.fill"
+        }
     }
 }
 
@@ -201,9 +217,9 @@ private struct HistoryTimelineItemRowView: View {
         title: "No Social Media After 9PM",
         details: "Phone off by 9 PM daily.",
         category: .habit,
-        status: .completed,
+        status: .resolved,
         strictMode: false,
-        streakCount: 21,
+        streakCount: 0,
         startDate: Calendar.current.date(byAdding: .day, value: -24, to: .now) ?? .now,
         targetDate: Calendar.current.date(byAdding: .day, value: -3, to: .now) ?? .now
     )
@@ -212,31 +228,33 @@ private struct HistoryTimelineItemRowView: View {
         title: "No Late-Night Snacking",
         details: "Cut snacks after 9 PM.",
         category: .nutrition,
-        status: .completed,
-        strictMode: true,
-        streakCount: 32,
+        status: .resolved,
+        strictMode: false,
+        streakCount: 0,
         startDate: Calendar.current.date(byAdding: .day, value: -35, to: .now) ?? .now,
         targetDate: Calendar.current.date(byAdding: .day, value: -5, to: .now) ?? .now
     )
 
-    let completionOne = PreviewFixtures.sampleCompletion(
+    let decisionOne = PreviewFixtures.sampleCompletion(
         item: first,
         completedAt: Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now
     )
+    decisionOne.outcome = .intentionalYes
 
-    let completionTwo = PreviewFixtures.sampleCompletion(
+    let decisionTwo = PreviewFixtures.sampleCompletion(
         item: second,
         completedAt: Calendar.current.date(byAdding: .day, value: -12, to: .now) ?? .now
     )
+    decisionTwo.outcome = .resisted
 
     let groupOne = HistoryTimelineGroup(
         monthStart: Calendar.current.date(byAdding: .month, value: 0, to: .now) ?? .now,
-        completions: [completionOne]
+        decisions: [decisionOne]
     )
 
     let groupTwo = HistoryTimelineGroup(
         monthStart: Calendar.current.date(byAdding: .month, value: -1, to: .now) ?? .now,
-        completions: [completionTwo]
+        decisions: [decisionTwo]
     )
 
     return ZStack {

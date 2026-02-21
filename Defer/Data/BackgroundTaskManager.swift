@@ -50,9 +50,7 @@ enum BackgroundTaskManager {
             let repository = SwiftDataDeferRepository(context: context)
 
             do {
-                _ = try repository.autoCheckInNonStrictDefers(asOf: .now)
-                try repository.enforceStrictModeCheckIn(asOf: .now)
-                _ = try repository.autoCompleteEligibleDefers(asOf: .now)
+                _ = try repository.refreshLifecycle(asOf: .now)
                 return true
             } catch {
                 return false

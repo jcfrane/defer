@@ -1,6 +1,7 @@
 import SwiftUI
 
 private let contributionFailRed = Color(red: 0.86, green: 0.28, blue: 0.24)
+private let contributionUrgeColor = DeferTheme.sand
 
 private enum DeferContributionState: Equatable {
     case success
@@ -66,8 +67,17 @@ private struct DeferContributionDay: Identifiable {
     let date: Date
     let state: DeferContributionState
     let isInRange: Bool
+    let urgeCount: Int
+    let fallbackCount: Int
 
     var id: Date { date }
+}
+
+private struct DeferContributionActivity {
+    let urgeCount: Int
+    let fallbackCount: Int
+
+    static let zero = DeferContributionActivity(urgeCount: 0, fallbackCount: 0)
 }
 
 private struct DeferContributionWeek: Identifiable {
@@ -187,8 +197,11 @@ struct DeferContributionChartView: View {
         let checkIns = records.filter { $0.status == .success }.count
         let pauses = records.filter { $0.status == .skipped }.count
         let fails = records.filter { $0.status == .failed }.count
+        let urgeLogs = item.urgeLogs.filter { $0.loggedAt >= start && $0.loggedAt < end }
+        let urgeCount = urgeLogs.count
+        let fallbackCount = urgeLogs.filter(\.usedFallbackAction).count
 
-        return "\(checkIns) check-in\(checkIns == 1 ? "" : "s") this week • \(pauses) paused • \(fails) failed"
+        return "\(checkIns) check-in\(checkIns == 1 ? "" : "s") • \(pauses) paused • \(fails) failed • \(urgeCount) urges • \(fallbackCount) fallbacks"
     }
 
     private var orderedWeekdaySymbols: [String] {
@@ -207,10 +220,14 @@ struct DeferContributionChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(1.25)) {
-            HStack(spacing: 8) {
-                legendChip("Check-in", color: DeferTheme.success)
-                legendChip("Pause", color: DeferTheme.warning)
-                legendChip("Fail", color: contributionFailRed)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    legendChip("Check-in", color: DeferTheme.success)
+                    legendChip("Pause", color: DeferTheme.warning)
+                    legendChip("Fail", color: contributionFailRed)
+                    legendChip("Urge", color: contributionUrgeColor)
+                    legendChip("Fallback", color: DeferTheme.success.opacity(0.85))
+                }
             }
 
             VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
@@ -315,13 +332,15 @@ struct DeferContributionChartView: View {
     private var selectionSummary: some View {
         Group {
             if let selectedDay {
+                let urgeSuffix = selectedDay.urgeCount > 0 ? " • \(selectedDay.urgeCount) urge\(selectedDay.urgeCount == 1 ? "" : "s")" : ""
+                let fallbackSuffix = selectedDay.fallbackCount > 0 ? " • \(selectedDay.fallbackCount) fallback\(selectedDay.fallbackCount == 1 ? "" : "s")" : ""
                 HStack(spacing: 8) {
                     Circle()
                         .fill(selectedDay.state.fillColor)
                         .frame(width: 8, height: 8)
 
                     Text(
-                        "\(Self.infoDateFormatter.string(from: selectedDay.date)) • \(selectedDay.state.label)"
+                        "\(Self.infoDateFormatter.string(from: selectedDay.date)) • \(selectedDay.state.label)\(urgeSuffix)\(fallbackSuffix)"
                     )
                     .font(.caption)
                     .foregroundStyle(DeferTheme.textMuted.opacity(0.86))
@@ -376,6 +395,22 @@ struct DeferContributionChartView: View {
                         lineWidth: isSelected ? 1.4 : 0.8
                     )
             )
+            .overlay(alignment: .topTrailing) {
+                if day.urgeCount > 0 {
+                    Circle()
+                        .fill(contributionUrgeColor)
+                        .frame(width: 5, height: 5)
+                        .offset(x: -1.5, y: 1.5)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if day.fallbackCount > 0 {
+                    Circle()
+                        .fill(DeferTheme.success)
+                        .frame(width: 5, height: 5)
+                        .offset(x: -1.5, y: -1.5)
+                }
+            }
             .opacity(day.isInRange ? 1 : 0.22)
             .contentShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
             .onTapGesture {
@@ -386,7 +421,7 @@ struct DeferContributionChartView: View {
                 }
             }
             .accessibilityLabel(
-                "\(Self.infoDateFormatter.string(from: day.date)), \(day.state.label)"
+                "\(Self.infoDateFormatter.string(from: day.date)), \(day.state.label), \(day.urgeCount) urge log\(day.urgeCount == 1 ? "" : "s"), \(day.fallbackCount) fallback\(day.fallbackCount == 1 ? "" : "s")"
             )
     }
 
@@ -419,6 +454,7 @@ struct DeferContributionChartView: View {
         let lastGridDay = endOfWeek(containing: visibleEnd)
 
         let recordByDay = latestRecordByDay()
+        let activityByDay = urgeActivityByDay()
         let failureFallbackDay = calendar.startOfDay(for: item.updatedAt)
 
         var weeks: [DeferContributionWeek] = []
@@ -439,6 +475,7 @@ struct DeferContributionChartView: View {
                 let day = calendar.startOfDay(for: date)
                 let isInRange = day >= visibleStart && day <= visibleEnd
                 let isFuture = day > today
+                let activity = activityByDay[day] ?? .zero
 
                 let state: DeferContributionState
                 if !isInRange {
@@ -459,7 +496,9 @@ struct DeferContributionChartView: View {
                     DeferContributionDay(
                         date: day,
                         state: state,
-                        isInRange: isInRange
+                        isInRange: isInRange,
+                        urgeCount: activity.urgeCount,
+                        fallbackCount: activity.fallbackCount
                     )
                 )
             }
@@ -502,6 +541,21 @@ struct DeferContributionChartView: View {
         return records
     }
 
+    private func urgeActivityByDay() -> [Date: DeferContributionActivity] {
+        var activity: [Date: DeferContributionActivity] = [:]
+
+        for log in item.urgeLogs {
+            let day = calendar.startOfDay(for: log.loggedAt)
+            let existing = activity[day] ?? .zero
+            activity[day] = DeferContributionActivity(
+                urgeCount: existing.urgeCount + 1,
+                fallbackCount: existing.fallbackCount + (log.usedFallbackAction ? 1 : 0)
+            )
+        }
+
+        return activity
+    }
+
     private func contributionState(for streakStatus: StreakEntryStatus) -> DeferContributionState {
         switch streakStatus {
         case .success:
@@ -530,13 +584,86 @@ struct DeferContributionChartView: View {
 }
 
 #Preview {
-    let bundle = PreviewFixtures.sampleBundle()
+    let calendar = Calendar.current
+    let now = Date()
+    let item = PreviewFixtures.sampleDefer(
+        title: "Late-night snacks",
+        details: "Wait, log urges, and use fallback before deciding.",
+        category: .nutrition,
+        status: .activeWait,
+        strictMode: false,
+        streakCount: 0,
+        startDate: calendar.date(byAdding: .day, value: -28, to: now) ?? now,
+        targetDate: calendar.date(byAdding: .day, value: 7, to: now) ?? now
+    )
+
+    item.streakRecords = [
+        StreakRecord(
+            date: calendar.date(byAdding: .day, value: -10, to: now) ?? now,
+            status: .success,
+            createdAt: calendar.date(byAdding: .day, value: -10, to: now) ?? now,
+            deferItem: item
+        ),
+        StreakRecord(
+            date: calendar.date(byAdding: .day, value: -8, to: now) ?? now,
+            status: .skipped,
+            createdAt: calendar.date(byAdding: .day, value: -8, to: now) ?? now,
+            deferItem: item
+        ),
+        StreakRecord(
+            date: calendar.date(byAdding: .day, value: -5, to: now) ?? now,
+            status: .failed,
+            createdAt: calendar.date(byAdding: .day, value: -5, to: now) ?? now,
+            deferItem: item
+        ),
+        StreakRecord(
+            date: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
+            status: .success,
+            createdAt: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
+            deferItem: item
+        )
+    ]
+
+    item.urgeLogs = [
+        UrgeLog(
+            deferID: item.id,
+            loggedAt: calendar.date(byAdding: .day, value: -9, to: now) ?? now,
+            intensity: 3,
+            note: "Opened delivery app",
+            usedFallbackAction: false,
+            deferItem: item
+        ),
+        UrgeLog(
+            deferID: item.id,
+            loggedAt: calendar.date(byAdding: .day, value: -6, to: now) ?? now,
+            intensity: 5,
+            note: "Strong craving after work",
+            usedFallbackAction: true,
+            deferItem: item
+        ),
+        UrgeLog(
+            deferID: item.id,
+            loggedAt: calendar.date(byAdding: .day, value: -6, to: now)?.addingTimeInterval(1800) ?? now,
+            intensity: 4,
+            note: "Used fallback again",
+            usedFallbackAction: true,
+            deferItem: item
+        ),
+        UrgeLog(
+            deferID: item.id,
+            loggedAt: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
+            intensity: 2,
+            note: "Minor urge",
+            usedFallbackAction: false,
+            deferItem: item
+        )
+    ]
 
     return ZStack {
         DeferTheme.homeBackground
             .ignoresSafeArea()
 
-        DeferContributionChartView(item: bundle.activeItems[0])
+        DeferContributionChartView(item: item)
             .padding()
     }
 }

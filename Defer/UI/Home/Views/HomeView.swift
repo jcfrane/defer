@@ -7,6 +7,8 @@ struct HomeView: View {
 
     @Query(sort: \DeferItem.targetDate) private var allDefers: [DeferItem]
     @Query(sort: \Achievement.unlockedAt, order: .reverse) private var achievements: [Achievement]
+    @Query(sort: \CompletionHistory.completedAt, order: .reverse) private var decisions: [CompletionHistory]
+    @Query(sort: \UrgeLog.loggedAt, order: .reverse) private var urgeLogs: [UrgeLog]
 
     @StateObject private var viewModel = HomeViewModel()
 
@@ -14,16 +16,32 @@ struct HomeView: View {
         SwiftDataDeferRepository(context: modelContext)
     }
 
-    private var activeAndOngoingDefers: [DeferItem] {
-        viewModel.activeAndOngoingDefers(from: allDefers)
+    private var pendingIntents: [DeferItem] {
+        viewModel.pendingIntents(from: allDefers)
+    }
+
+    private var dueNow: [DeferItem] {
+        viewModel.needsDecisionNow(from: allDefers)
+    }
+
+    private var inDelay: [DeferItem] {
+        viewModel.inDelayWindow(from: allDefers)
     }
 
     private var stats: HomeStats {
-        viewModel.stats(from: allDefers)
+        viewModel.stats(from: allDefers, decisions: decisions, urgeLogs: urgeLogs)
     }
 
-    private var activeDeferIDs: [UUID] {
-        activeAndOngoingDefers.map(\.id)
+    private var activeIntentIDs: [UUID] {
+        pendingIntents.map(\.id)
+    }
+
+    private var whyReminderEnabled: Bool {
+        AppBehaviorSettingsStore.isWhyReminderEnabled()
+    }
+
+    private var reflectionPromptEnabled: Bool {
+        AppBehaviorSettingsStore.isReflectionPromptEnabled()
     }
 
     var body: some View {
@@ -40,7 +58,7 @@ struct HomeView: View {
 
                         HomeFocusCardView(
                             stats: stats,
-                            liveCount: activeAndOngoingDefers.count
+                            liveCount: pendingIntents.count
                         )
 
                         if viewModel.isQuoteCardVisible {
@@ -70,11 +88,22 @@ struct HomeView: View {
                                 )
                         )
 
-                        if activeAndOngoingDefers.isEmpty {
+                        if pendingIntents.isEmpty {
                             HomeEmptyStateView()
-                                .padding(.top, 40)
+                                .padding(.top, 24)
                         } else {
-                            deferCards
+                            if !dueNow.isEmpty {
+                                queueSection(title: "Due Now", subtitle: "Handle these first") {
+                                    cards(for: dueNow)
+                                }
+                            }
+
+                            if !inDelay.isEmpty {
+                                queueSection(title: "Active", subtitle: "Defers in progress") {
+                                    cards(for: inDelay)
+                                }
+                            }
+
                         }
                     }
                     .padding(.horizontal, DeferTheme.spacing(2))
@@ -84,25 +113,45 @@ struct HomeView: View {
             }
             .sheet(isPresented: $viewModel.showingCreateForm) {
                 DeferFormView(mode: .create, initialDraft: .newDefault()) { draft in
-                    viewModel.createDefer(draft, repository: repository)
+                    viewModel.createIntent(draft, repository: repository)
                 }
             }
             .sheet(item: $viewModel.editingDefer) { item in
                 DeferFormView(mode: .edit, initialDraft: .from(item)) { draft in
-                    viewModel.updateDefer(item, with: draft, repository: repository)
+                    viewModel.updateIntent(item, with: draft, repository: repository)
                 }
             }
             .sheet(item: $viewModel.viewingDefer) { item in
                 DeferDetailView(
                     item: item,
-                    onCheckIn: {
-                        viewModel.checkIn(item, repository: repository, currentAchievementCount: currentAchievementCount)
+                    showWhyReminderPrompt: whyReminderEnabled,
+                    reflectionPromptEnabled: reflectionPromptEnabled,
+                    onLogUrge: {
+                        viewModel.logUrge(item, repository: repository, currentAchievementCount: currentAchievementCount)
                     },
-                    onTogglePause: {
-                        viewModel.togglePause(item, repository: repository)
+                    onUseFallback: {
+                        viewModel.useFallback(item, repository: repository, currentAchievementCount: currentAchievementCount)
                     },
-                    onMarkFailed: {
-                        viewModel.presentDestructive(.markFailed, for: item)
+                    onDecideOutcome: { outcome, reflection in
+                        viewModel.completeDecision(
+                            item,
+                            outcome: outcome,
+                            reflection: reflection,
+                            repository: repository,
+                            currentAchievementCount: currentAchievementCount
+                        )
+                    },
+                    onPostpone: { delayProtocol, note in
+                        viewModel.postponeIntent(
+                            item,
+                            with: delayProtocol,
+                            note: note,
+                            repository: repository,
+                            currentAchievementCount: currentAchievementCount
+                        )
+                    },
+                    onMarkGaveIn: {
+                        viewModel.presentDestructive(.markGaveIn, for: item)
                     },
                     onEdit: {
                         viewModel.viewingDefer = nil
@@ -110,12 +159,33 @@ struct HomeView: View {
                     }
                 )
             }
+            .alert(
+                "Enable decision reminders?",
+                isPresented: $viewModel.showNotificationPermissionPrompt,
+                actions: {
+                    Button("Not now", role: .cancel) {
+                        viewModel.dismissNotificationPermissionPrompt()
+                    }
+                    Button("Enable") {
+                        Task {
+                            await viewModel.enableContextualReminders(activeItems: pendingIntents)
+                        }
+                    }
+                },
+                message: {
+                    Text("Get due reminders and follow-up nudges.")
+                }
+            )
             .alert(item: $viewModel.pendingDestructiveAction) { pending in
                 Alert(
                     title: Text(pending.title),
                     message: Text(pending.message),
                     primaryButton: .destructive(Text(pending.confirmTitle)) {
-                        viewModel.runDestructive(pending, repository: repository)
+                        viewModel.runDestructive(
+                            pending,
+                            repository: repository,
+                            currentAchievementCount: currentAchievementCount
+                        )
                     },
                     secondaryButton: .cancel()
                 )
@@ -136,28 +206,29 @@ struct HomeView: View {
                 }
             )
             .task {
-                viewModel.autoCompleteDefersIfNeeded(
-                    repository: repository,
-                    currentAchievementCount: currentAchievementCount
-                )
+                viewModel.refreshLifecycle(repository: repository)
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
-                    viewModel.autoCompleteDefersIfNeeded(
-                        repository: repository,
-                        currentAchievementCount: currentAchievementCount
-                    )
+                    viewModel.refreshLifecycle(repository: repository)
                 }
             }
-            .animation(.spring(response: 0.45, dampingFraction: 0.85), value: activeAndOngoingDefers.count)
+            .animation(.spring(response: 0.45, dampingFraction: 0.85), value: pendingIntents.count)
             .animation(.easeInOut(duration: 0.2), value: viewModel.sortOption)
             .animation(.easeInOut(duration: 0.2), value: viewModel.selectedCategory)
             .overlay(alignment: .top) {
-                if viewModel.showAchievementCelebration {
-                    HomeUnlockBannerView(newlyUnlockedCount: viewModel.newlyUnlockedCount)
-                        .padding(.top, DeferTheme.spacing(1))
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                VStack(spacing: DeferTheme.spacing(0.75)) {
+                    if let toast = viewModel.actionToast {
+                        HomeActionToastView(toast: toast)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    if viewModel.showAchievementCelebration {
+                        HomeUnlockBannerView(newlyUnlockedCount: viewModel.newlyUnlockedCount)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
+                .padding(.top, DeferTheme.spacing(1))
             }
         }
     }
@@ -168,9 +239,6 @@ struct HomeView: View {
             subtitle: {
                 VStack(alignment: .leading, spacing: DeferTheme.spacing(0.75)) {
                     HomeWeekdayStripView()
-                    Text("Move one step with intention today.")
-                        .font(.caption)
-                        .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
                 }
             },
             trailing: {
@@ -179,10 +247,7 @@ struct HomeView: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [
-                                        DeferTheme.accent.opacity(0.95),
-                                        DeferTheme.warning.opacity(0.88)
-                                    ],
+                                    colors: [DeferTheme.accent.opacity(0.95), DeferTheme.warning.opacity(0.88)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -195,23 +260,53 @@ struct HomeView: View {
                             .foregroundStyle(DeferTheme.textPrimary)
                     }
                 }
+                .accessibilityLabel("New intent")
             }
         )
     }
 
-    private var deferCards: some View {
+    private func queueSection<Content: View>(title: String, subtitle: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(DeferTheme.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
+            }
+
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func cards(for items: [DeferItem]) -> some View {
         LazyVStack(spacing: DeferTheme.spacing(1.5)) {
-            ForEach(Array(activeAndOngoingDefers.enumerated()), id: \.element.id) { index, item in
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 HomeDeferCardView(
                     item: item,
-                    onCheckIn: {
-                        viewModel.checkIn(item, repository: repository, currentAchievementCount: currentAchievementCount)
+                    showWhyReminder: whyReminderEnabled,
+                    onLogUrge: {
+                        viewModel.logUrge(item, repository: repository, currentAchievementCount: currentAchievementCount)
                     },
-                    onMarkFailed: {
-                        viewModel.presentDestructive(.markFailed, for: item)
+                    onUseFallback: {
+                        viewModel.useFallback(item, repository: repository, currentAchievementCount: currentAchievementCount)
                     },
-                    onTogglePause: {
-                        viewModel.togglePause(item, repository: repository)
+                    onDecideNow: {
+                        viewModel.viewDetails(for: item)
+                    },
+                    onPostpone: {
+                        viewModel.postponeIntent(
+                            item,
+                            with: DelayProtocol(type: .twentyFourHours),
+                            note: "Postponed quickly from Home",
+                            repository: repository,
+                            currentAchievementCount: currentAchievementCount
+                        )
+                    },
+                    onMarkGaveIn: {
+                        viewModel.presentDestructive(.markGaveIn, for: item)
                     },
                     onCardTap: {
                         viewModel.viewDetails(for: item)
@@ -220,13 +315,23 @@ struct HomeView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(
                     .spring(response: 0.45, dampingFraction: 0.82).delay(Double(index) * 0.04),
-                    value: activeDeferIDs
+                    value: activeIntentIDs
                 )
                 .contextMenu {
-                    Button("View details") { viewModel.viewingDefer = item }
-                    Button("Edit") { viewModel.edit(item) }
-                    Button("Cancel defer") { viewModel.presentDestructive(.cancel, for: item) }
-                    Button("Delete defer", role: .destructive) {
+                    Button("View checkpoint") { viewModel.viewingDefer = item }
+                    Button("Edit intent") { viewModel.edit(item) }
+                    Button("Postpone 24h") {
+                        viewModel.postponeIntent(
+                            item,
+                            with: DelayProtocol(type: .twentyFourHours),
+                            note: "Postponed from context menu",
+                            repository: repository,
+                            currentAchievementCount: currentAchievementCount
+                        )
+                    }
+                    Button("Record gave in") { viewModel.presentDestructive(.markGaveIn, for: item) }
+                    Button("Cancel intent") { viewModel.presentDestructive(.cancel, for: item) }
+                    Button("Delete intent", role: .destructive) {
                         viewModel.presentDestructive(.delete, for: item)
                     }
                 }
@@ -239,10 +344,7 @@ struct HomeView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            DeferTheme.accent.opacity(0.2),
-                            .clear
-                        ],
+                        colors: [DeferTheme.accent.opacity(0.2), .clear],
                         center: .center,
                         startRadius: 8,
                         endRadius: 190
@@ -255,10 +357,7 @@ struct HomeView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            DeferTheme.success.opacity(0.18),
-                            .clear
-                        ],
+                        colors: [DeferTheme.success.opacity(0.18), .clear],
                         center: .center,
                         startRadius: 8,
                         endRadius: 180

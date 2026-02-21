@@ -4,55 +4,75 @@ import SwiftUI
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    enum Keys {
-        static let remindersEnabled = "notifications.remindersEnabled"
-        static let dailyCheckInEnabled = "notifications.dailyCheckInEnabled"
-        static let milestoneEnabled = "notifications.milestoneEnabled"
-        static let targetApproachingEnabled = "notifications.targetApproachingEnabled"
-        static let reminderTimeInterval = "notifications.reminderTimeInterval"
-    }
-
     @Published var remindersEnabled: Bool {
-        didSet { defaults.set(remindersEnabled, forKey: Keys.remindersEnabled) }
+        didSet { NotificationSettingsStore.setRemindersEnabled(remindersEnabled, defaults: defaults) }
     }
 
-    @Published var dailyCheckInEnabled: Bool {
-        didSet { defaults.set(dailyCheckInEnabled, forKey: Keys.dailyCheckInEnabled) }
+    @Published var checkpointDueEnabled: Bool {
+        didSet { defaults.set(checkpointDueEnabled, forKey: NotificationSettingsStore.Keys.checkpointDueEnabled) }
     }
 
-    @Published var milestoneEnabled: Bool {
-        didSet { defaults.set(milestoneEnabled, forKey: Keys.milestoneEnabled) }
+    @Published var midDelayNudgeEnabled: Bool {
+        didSet { defaults.set(midDelayNudgeEnabled, forKey: NotificationSettingsStore.Keys.midDelayNudgeEnabled) }
     }
 
-    @Published var targetApproachingEnabled: Bool {
-        didSet { defaults.set(targetApproachingEnabled, forKey: Keys.targetApproachingEnabled) }
+    @Published var highRiskWindowEnabled: Bool {
+        didSet { defaults.set(highRiskWindowEnabled, forKey: NotificationSettingsStore.Keys.highRiskWindowEnabled) }
+    }
+
+    @Published var postponeConfirmationEnabled: Bool {
+        didSet { defaults.set(postponeConfirmationEnabled, forKey: NotificationSettingsStore.Keys.postponeConfirmationEnabled) }
     }
 
     @Published var reminderTimeInterval: TimeInterval {
-        didSet { defaults.set(reminderTimeInterval, forKey: Keys.reminderTimeInterval) }
+        didSet { defaults.set(reminderTimeInterval, forKey: NotificationSettingsStore.Keys.reminderTimeInterval) }
+    }
+
+    @Published var highRiskWindowStartInterval: TimeInterval {
+        didSet { defaults.set(highRiskWindowStartInterval, forKey: NotificationSettingsStore.Keys.highRiskWindowStartInterval) }
+    }
+
+    @Published var reflectionPromptEnabled: Bool {
+        didSet { AppBehaviorSettingsStore.setReflectionPromptEnabled(reflectionPromptEnabled, defaults: defaults) }
+    }
+
+    @Published var whyReminderEnabled: Bool {
+        didSet { AppBehaviorSettingsStore.setWhyReminderEnabled(whyReminderEnabled, defaults: defaults) }
     }
 
     @Published var authorizationState: LocalNotificationAuthorizationState = .notDetermined
     @Published var showNotificationOnboarding = false
+    @Published var exportFileURL: URL?
+    @Published var exportErrorMessage: String?
 
     private let defaults: UserDefaults
+    private let exportService: DataExportService
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        exportService: DataExportService? = nil
+    ) {
         self.defaults = defaults
+        self.exportService = exportService ?? DataExportService()
 
-        self.remindersEnabled = defaults.object(forKey: Keys.remindersEnabled) as? Bool ?? false
-        self.dailyCheckInEnabled = defaults.object(forKey: Keys.dailyCheckInEnabled) as? Bool ?? true
-        self.milestoneEnabled = defaults.object(forKey: Keys.milestoneEnabled) as? Bool ?? true
-        self.targetApproachingEnabled = defaults.object(forKey: Keys.targetApproachingEnabled) as? Bool ?? true
-        self.reminderTimeInterval = defaults.object(forKey: Keys.reminderTimeInterval) as? TimeInterval ?? Self.defaultReminderTimeInterval
+        let preferences = NotificationSettingsStore.loadPreferences(defaults: defaults)
+        self.remindersEnabled = preferences.remindersEnabled
+        self.checkpointDueEnabled = preferences.checkpointDueEnabled
+        self.midDelayNudgeEnabled = preferences.midDelayNudgeEnabled
+        self.highRiskWindowEnabled = preferences.highRiskWindowEnabled
+        self.postponeConfirmationEnabled = preferences.postponeConfirmationEnabled
+        self.reminderTimeInterval = preferences.reminderTime.timeIntervalSinceReferenceDate
+        self.highRiskWindowStartInterval = preferences.highRiskWindowStart.timeIntervalSinceReferenceDate
+        self.reflectionPromptEnabled = AppBehaviorSettingsStore.isReflectionPromptEnabled(defaults: defaults)
+        self.whyReminderEnabled = AppBehaviorSettingsStore.isWhyReminderEnabled(defaults: defaults)
     }
 
     var hasEnabledReminderType: Bool {
-        dailyCheckInEnabled || milestoneEnabled || targetApproachingEnabled
+        checkpointDueEnabled || midDelayNudgeEnabled || highRiskWindowEnabled || postponeConfirmationEnabled
     }
 
     var enabledReminderTypeCount: Int {
-        [dailyCheckInEnabled, milestoneEnabled, targetApproachingEnabled].filter { $0 }.count
+        [checkpointDueEnabled, midDelayNudgeEnabled, highRiskWindowEnabled, postponeConfirmationEnabled].filter { $0 }.count
     }
 
     var reminderTimeText: String {
@@ -60,10 +80,15 @@ final class SettingsViewModel: ObservableObject {
             .formatted(date: .omitted, time: .shortened)
     }
 
+    var highRiskWindowText: String {
+        Date(timeIntervalSinceReferenceDate: highRiskWindowStartInterval)
+            .formatted(date: .omitted, time: .shortened)
+    }
+
     var reminderProfileTitle: String {
         switch authorizationState {
         case .enabled where remindersEnabled && hasEnabledReminderType:
-            return "Actively guiding your streak"
+            return "Actively guiding decisions"
         case .enabled where remindersEnabled:
             return "Schedule enabled, types muted"
         case .enabled:
@@ -80,7 +105,7 @@ final class SettingsViewModel: ObservableObject {
     var reminderProfileSubtitle: String {
         switch authorizationState {
         case .enabled where remindersEnabled && hasEnabledReminderType:
-            return "You will receive focused reminders at \(reminderTimeText)."
+            return "Checkpoint reminders run at \(reminderTimeText), high-risk nudges at \(highRiskWindowText)."
         case .enabled where remindersEnabled:
             return "Turn on at least one reminder type to start scheduling."
         case .enabled:
@@ -147,11 +172,11 @@ final class SettingsViewModel: ObservableObject {
     var authorizationDetailText: String {
         switch authorizationState {
         case .enabled:
-            return "Configure your schedule and choose exactly which reminder types should reach you."
+            return "Configure checkpoint reminders, support nudges, and high-risk prompts from this screen."
         case .denied:
             return "Defer cannot deliver reminders until you re-enable notification access in iOS Settings."
         case .notDetermined:
-            return "You have not granted access yet. Run setup to start receiving reminder notifications."
+            return "You have not granted access yet. Run setup to start receiving checkpoint notifications."
         case .unknown:
             return "Unable to read notification permission status right now. Try reopening the app."
         }
@@ -160,10 +185,12 @@ final class SettingsViewModel: ObservableObject {
     var preferences: NotificationPreferences {
         NotificationPreferences(
             remindersEnabled: remindersEnabled,
-            dailyCheckInEnabled: dailyCheckInEnabled,
-            milestoneEnabled: milestoneEnabled,
-            targetApproachingEnabled: targetApproachingEnabled,
-            reminderTime: Date(timeIntervalSinceReferenceDate: reminderTimeInterval)
+            checkpointDueEnabled: checkpointDueEnabled,
+            midDelayNudgeEnabled: midDelayNudgeEnabled,
+            highRiskWindowEnabled: highRiskWindowEnabled,
+            postponeConfirmationEnabled: postponeConfirmationEnabled,
+            reminderTime: Date(timeIntervalSinceReferenceDate: reminderTimeInterval),
+            highRiskWindowStart: Date(timeIntervalSinceReferenceDate: highRiskWindowStartInterval)
         )
     }
 
@@ -172,27 +199,50 @@ final class SettingsViewModel: ObservableObject {
         reminderTimeInterval = value.timeIntervalSinceReferenceDate
     }
 
+    func setHighRiskWindowStart(_ value: Date) {
+        AppHaptics.selection()
+        highRiskWindowStartInterval = value.timeIntervalSinceReferenceDate
+    }
+
     func setRemindersEnabled(_ value: Bool) {
         guard value != remindersEnabled else { return }
         remindersEnabled = value
         AppHaptics.impact(.light)
     }
 
-    func setDailyCheckInEnabled(_ value: Bool) {
-        guard value != dailyCheckInEnabled else { return }
-        dailyCheckInEnabled = value
+    func setCheckpointDueEnabled(_ value: Bool) {
+        guard value != checkpointDueEnabled else { return }
+        checkpointDueEnabled = value
         AppHaptics.selection()
     }
 
-    func setMilestoneEnabled(_ value: Bool) {
-        guard value != milestoneEnabled else { return }
-        milestoneEnabled = value
+    func setMidDelayNudgeEnabled(_ value: Bool) {
+        guard value != midDelayNudgeEnabled else { return }
+        midDelayNudgeEnabled = value
         AppHaptics.selection()
     }
 
-    func setTargetApproachingEnabled(_ value: Bool) {
-        guard value != targetApproachingEnabled else { return }
-        targetApproachingEnabled = value
+    func setHighRiskWindowEnabled(_ value: Bool) {
+        guard value != highRiskWindowEnabled else { return }
+        highRiskWindowEnabled = value
+        AppHaptics.selection()
+    }
+
+    func setPostponeConfirmationEnabled(_ value: Bool) {
+        guard value != postponeConfirmationEnabled else { return }
+        postponeConfirmationEnabled = value
+        AppHaptics.selection()
+    }
+
+    func setReflectionPromptEnabled(_ value: Bool) {
+        guard value != reflectionPromptEnabled else { return }
+        reflectionPromptEnabled = value
+        AppHaptics.selection()
+    }
+
+    func setWhyReminderEnabled(_ value: Bool) {
+        guard value != whyReminderEnabled else { return }
+        whyReminderEnabled = value
         AppHaptics.selection()
     }
 
@@ -245,11 +295,32 @@ final class SettingsViewModel: ObservableObject {
         )
     }
 
-    private static var defaultReminderTimeInterval: TimeInterval {
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: .now)
-        components.hour = 20
-        components.minute = 0
-        let date = Calendar.current.date(from: components) ?? .now
-        return date.timeIntervalSinceReferenceDate
+    func exportBackup(
+        format: DataExportFormat,
+        defers: [DeferItem],
+        completions: [CompletionHistory],
+        achievements: [Achievement]
+    ) {
+        do {
+            exportFileURL = try exportService.export(
+                format: format,
+                defers: defers,
+                completions: completions,
+                achievements: achievements
+            )
+            exportErrorMessage = nil
+            AppHaptics.success()
+        } catch {
+            exportErrorMessage = error.localizedDescription
+            AppHaptics.error()
+        }
+    }
+
+    func clearExportFile() {
+        exportFileURL = nil
+    }
+
+    func clearExportError() {
+        exportErrorMessage = nil
     }
 }

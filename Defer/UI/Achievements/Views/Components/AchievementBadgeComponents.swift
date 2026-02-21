@@ -127,13 +127,13 @@ struct AchievementBadgeArtwork: View {
 
     private var motif: BadgeMotif {
         switch definition.key {
-        case "first_completion", "category_mastery_3":
+        case "first_intentional_choice", "delay_adherence_70":
             return .rings
-        case "streak_7", "streak_100":
+        case "intentional_5", "reflection_5":
             return .rays
-        case "streak_30", "completion_run_3":
+        case "urge_navigator_10", "resisted_10":
             return .stripes
-        case "category_mastery_10", "completion_run_7":
+        case "strategic_postpone_3", "saved_100", "intentional_run_7":
             return .constellation
         default:
             return .rings
@@ -142,22 +142,24 @@ struct AchievementBadgeArtwork: View {
 
     private var ribbonLabel: String {
         switch definition.key {
-        case "first_completion":
-            return "FIRST WIN"
-        case "streak_7":
-            return "7-DAY"
-        case "streak_30":
-            return "30-DAY"
-        case "streak_100":
-            return "100-DAY"
-        case "category_mastery_3":
-            return "SPECIALIST"
-        case "category_mastery_10":
-            return "MASTER"
-        case "completion_run_3":
-            return "MOMENTUM"
-        case "completion_run_7":
-            return "UNSTOPPABLE"
+        case "first_intentional_choice":
+            return "INTENT"
+        case "intentional_5":
+            return "FIVE"
+        case "urge_navigator_10":
+            return "URGE"
+        case "reflection_5":
+            return "REFLECT"
+        case "delay_adherence_70":
+            return "DELAY"
+        case "strategic_postpone_3":
+            return "POSTPONE"
+        case "resisted_10":
+            return "RESIST"
+        case "saved_100":
+            return "SAVED"
+        case "intentional_run_7":
+            return "RUN"
         default:
             return definition.tier.displayName.uppercased()
         }
@@ -541,7 +543,7 @@ private struct AchievementBadgePalette {
 
     static func forKey(_ key: String, tier: AchievementTier) -> AchievementBadgePalette {
         switch key {
-        case "first_completion":
+        case "first_intentional_choice":
             return AchievementBadgePalette(
                 outerA: Color(red: 0.07, green: 0.84, blue: 0.83),
                 outerB: Color(red: 0.06, green: 0.67, blue: 0.94),
@@ -558,7 +560,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.07, green: 0.45, blue: 0.27),
                 glow: Color(red: 0.35, green: 1.0, blue: 0.86)
             )
-        case "streak_7":
+        case "intentional_5":
             return AchievementBadgePalette(
                 outerA: Color(red: 0.05, green: 0.86, blue: 0.67),
                 outerB: Color(red: 0.07, green: 0.70, blue: 0.52),
@@ -575,7 +577,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.09, green: 0.41, blue: 0.21),
                 glow: Color(red: 0.56, green: 1.0, blue: 0.66)
             )
-        case "streak_30":
+        case "urge_navigator_10":
             return AchievementBadgePalette(
                 outerA: Color(red: 0.16, green: 0.67, blue: 1.0),
                 outerB: Color(red: 0.22, green: 0.49, blue: 1.0),
@@ -592,7 +594,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.17, green: 0.25, blue: 0.70),
                 glow: Color(red: 0.55, green: 0.80, blue: 1.0)
             )
-        case "streak_100":
+        case "reflection_5":
             return AchievementBadgePalette(
                 outerA: Color(red: 0.79, green: 0.20, blue: 1.0),
                 outerB: Color(red: 0.52, green: 0.24, blue: 1.0),
@@ -609,7 +611,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.37, green: 0.16, blue: 0.65),
                 glow: Color(red: 0.88, green: 0.44, blue: 1.0)
             )
-        case "category_mastery_3":
+        case "delay_adherence_70":
             return AchievementBadgePalette(
                 outerA: Color(red: 1.0, green: 0.59, blue: 0.21),
                 outerB: Color(red: 1.0, green: 0.46, blue: 0.33),
@@ -626,7 +628,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.61, green: 0.20, blue: 0.17),
                 glow: Color(red: 1.0, green: 0.74, blue: 0.35)
             )
-        case "category_mastery_10":
+        case "strategic_postpone_3":
             return AchievementBadgePalette(
                 outerA: Color(red: 1.0, green: 0.77, blue: 0.22),
                 outerB: Color(red: 0.96, green: 0.60, blue: 0.16),
@@ -643,7 +645,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.56, green: 0.16, blue: 0.15),
                 glow: Color(red: 1.0, green: 0.73, blue: 0.30)
             )
-        case "completion_run_3":
+        case "resisted_10":
             return AchievementBadgePalette(
                 outerA: Color(red: 0.69, green: 0.95, blue: 0.17),
                 outerB: Color(red: 0.37, green: 0.84, blue: 0.24),
@@ -660,7 +662,7 @@ private struct AchievementBadgePalette {
                 tailB: Color(red: 0.18, green: 0.40, blue: 0.15),
                 glow: Color(red: 0.71, green: 0.99, blue: 0.41)
             )
-        case "completion_run_7":
+        case "saved_100", "intentional_run_7":
             return AchievementBadgePalette(
                 outerA: Color(red: 1.0, green: 0.33, blue: 0.72),
                 outerB: Color(red: 0.94, green: 0.26, blue: 0.42),
@@ -779,21 +781,6 @@ private extension CGFloat {
     }
 }
 
-private extension AchievementRule {
-    func progressValue(using progress: AchievementProgress) -> (current: Int, target: Int) {
-        switch self {
-        case .minCompletions(let target):
-            return (min(progress.completionCount, target), target)
-        case .minStreak(let target):
-            return (min(progress.maxStreak, target), target)
-        case .categoryMastery(let target):
-            return (min(progress.highestCategoryCompletionCount, target), target)
-        case .consecutiveCompletions(let target):
-            return (min(progress.maxConsecutiveCompletions, target), target)
-        }
-    }
-}
-
 #Preview("Badge Tile") {
     ZStack {
         DeferTheme.homeBackground
@@ -801,19 +788,24 @@ private extension AchievementRule {
 
         AchievementBadgeTile(
             definition: AchievementCatalog.all.first ?? AchievementDefinition(
-                key: "first_completion",
-                title: "First Win",
-                details: "Complete your first defer.",
+                key: "first_intentional_choice",
+                title: "First Intentional Choice",
+                details: "Resolve one intent with a deliberate outcome.",
                 tier: .bronze,
-                icon: "flag.checkered",
-                rule: .minCompletions(1)
+                icon: "sparkles",
+                rule: .minIntentionalDecisions(1)
             ),
             unlocked: nil,
             progress: AchievementProgress(
-                completionCount: 1,
-                maxStreak: 6,
-                highestCategoryCompletionCount: 1,
-                maxConsecutiveCompletions: 1
+                resolvedCount: 1,
+                intentionalCount: 1,
+                resistedCount: 1,
+                postponeCount: 0,
+                urgeLogCount: 2,
+                reflectionCount: 1,
+                delayAdherenceRate: 1,
+                estimatedSpendAvoided: 30,
+                maxIntentionalRun: 1
             ),
             onTapUnlocked: {}
         )

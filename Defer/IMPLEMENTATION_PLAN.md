@@ -90,7 +90,7 @@ Build a SwiftUI + SwiftData iOS app that helps users defer urges/purchases/habit
 - [x] Build `CreateDeferView` with validations:
   - [x] Title required.
   - [x] Target date must be after start date.
-  - [ ] Optional preset templates by category.
+  - [x] Optional preset templates by category.
 - [x] Build edit flow (`EditDeferView`).
 - [x] Add delete/cancel confirmation UX.
 
@@ -110,7 +110,7 @@ Build a SwiftUI + SwiftData iOS app that helps users defer urges/purchases/habit
   - [x] Daily confirmation.
   - [x] Auto-update streak count.
 - [x] Handle missed days policy (grace vs strict).
-- [ ] Add streak recovery option (optional setting).
+- [x] Add streak recovery option (optional setting).
 
 ### 2.4 Completion and History
 - [x] Auto-complete defer when target date passes and status is valid.
@@ -141,7 +141,7 @@ Build a SwiftUI + SwiftData iOS app that helps users defer urges/purchases/habit
 ### 3.3 Motivational Extras
 - [x] Quote of the day module (local bundle first, remote later).
 - [x] Encourage message logic based on streak state.
-- [ ] Optional “why I defer this” reminder prompt display.
+- [x] Optional “why I defer this” reminder prompt display.
 
 ---
 
@@ -167,7 +167,7 @@ Build a SwiftUI + SwiftData iOS app that helps users defer urges/purchases/habit
 - [x] Ensure Dynamic Type support and accessibility contrast.
 
 ### 4.3 Motion and Delight
-- [ ] Tree growth animation linked to streak milestones.
+- [x] Tree growth animation linked to streak milestones.
 - [x] Card reveal animation on dashboard load.
 - [x] Badge unlock burst animation.
 - [x] Subtle haptics for check-ins and completion.
@@ -185,19 +185,19 @@ Build a SwiftUI + SwiftData iOS app that helps users defer urges/purchases/habit
 ## Phase 5: Notifications, Reminders, and Reliability
 
 ### 5.1 Local Notifications
-- [ ] Request notification permission in context.
-- [ ] Daily check-in reminders.
-- [ ] Milestone reminder notifications.
-- [ ] Target-date approaching alerts.
+- [x] Request notification permission in context.
+- [x] Daily check-in reminders.
+- [x] Milestone reminder notifications.
+- [x] Target-date approaching alerts.
 
 ### 5.2 Reliability and Data Integrity
-- [ ] Add migration strategy for SwiftData schema versions.
-- [ ] Add data validation guards for impossible states.
-- [ ] Add backup/export option (JSON/CSV) for user trust.
+- [x] Add migration strategy for SwiftData schema versions.
+- [x] Add data validation guards for impossible states.
+- [x] Add backup/export option (JSON/CSV) for user trust.
 
 ### 5.3 Offline-First Behavior
-- [ ] Ensure all core features run fully offline.
-- [ ] Queue non-critical operations for later sync (if cloud introduced later).
+- [x] Ensure all core features run fully offline.
+- [x] Queue non-critical operations for later sync (if cloud introduced later).
 
 ---
 

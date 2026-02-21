@@ -43,11 +43,29 @@ enum DeferTheme {
 
     static func statusColor(for status: DeferStatus) -> Color {
         switch status {
-        case .active: return success
-        case .completed: return accent
+        case .activeWait, .active: return success
+        case .checkpointDue: return warning
+        case .resolved, .completed: return accent
         case .failed: return danger
         case .canceled: return sand.opacity(0.45)
         case .paused: return warning
+        }
+    }
+
+    static func outcomeColor(for outcome: DecisionOutcome?) -> Color {
+        switch outcome {
+        case .resisted:
+            return success
+        case .intentionalYes:
+            return accent
+        case .postponed:
+            return warning
+        case .gaveIn:
+            return danger
+        case .canceled:
+            return sand.opacity(0.45)
+        case .none:
+            return textMuted.opacity(0.8)
         }
     }
 

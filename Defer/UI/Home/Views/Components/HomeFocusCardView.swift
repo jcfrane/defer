@@ -5,36 +5,36 @@ struct HomeFocusCardView: View {
     let liveCount: Int
 
     private var title: String {
-        if stats.active == 0 {
-            return "Fresh slate, ready to begin"
+        if stats.checkpointDue > 0 {
+            return "Checkpoint due"
         }
 
-        if stats.dueSoon > 0 {
-            return "Keep pressure low, momentum high"
+        if stats.activeWait == 0 {
+            return "No active defer"
         }
 
-        return "Strong rhythm this week"
+        return "Defers active"
     }
 
     private var subtitle: String {
-        if stats.active == 0 {
-            return "Create a new defer and start your next intentional streak."
+        if stats.checkpointDue > 0 {
+            return "Decide due checkpoints first."
         }
 
-        if stats.dueSoon > 0 {
-            return "A few goals are nearing target dates. Stay locked in."
+        if stats.activeWait == 0 {
+            return "Add an intent to start."
         }
 
-        return "Your active goals are paced well. Keep your streaks protected."
+        return "Log urges. Use your fallback."
+    }
+
+    private var intentionalPercent: Int {
+        Int((stats.intentionalRate * 100).rounded())
     }
 
     var body: some View {
         HStack(spacing: DeferTheme.spacing(1.5)) {
             VStack(alignment: .leading, spacing: DeferTheme.spacing(0.75)) {
-                Text("Focus Pulse")
-                    .font(.caption.weight(.semibold))
-                    .tracking(0.7)
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.72))
 
                 Text(title)
                     .font(.title3.weight(.bold))
@@ -46,37 +46,21 @@ struct HomeFocusCardView: View {
                     .lineLimit(2)
 
                 HStack(spacing: DeferTheme.spacing(0.75)) {
-                    HomeInfoChip(icon: "target", text: "\(stats.active) active", color: DeferTheme.success)
-                    HomeInfoChip(icon: "clock.fill", text: "\(stats.dueSoon) due soon", color: DeferTheme.warning)
+                    HomeInfoChip(icon: "clock.fill", text: "\(stats.activeWait) active", color: DeferTheme.success)
+                    HomeInfoChip(icon: "exclamationmark.circle.fill", text: "\(stats.checkpointDue) due", color: DeferTheme.warning)
                 }
             }
 
             Spacer(minLength: 0)
 
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                DeferTheme.success.opacity(0.95),
-                                DeferTheme.moss.opacity(0.92)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 72, height: 72)
-                    .shadow(color: DeferTheme.success.opacity(0.34), radius: 14, y: 6)
+            VStack(spacing: 8) {
+                HomeGrowthTreeView(intentionalRate: stats.intentionalRate)
 
-                VStack(spacing: 2) {
-                    Text("\(liveCount)")
-                        .font(.title3.weight(.bold))
-                    Text("live")
-                        .font(.caption2.weight(.bold))
-                        .textCase(.uppercase)
-                        .tracking(0.7)
-                }
-                .foregroundStyle(DeferTheme.textPrimary)
+                Text("Intent \(intentionalPercent)%")
+                    .font(.caption2.weight(.bold))
+                    .textCase(.uppercase)
+                    .tracking(0.7)
+                    .foregroundStyle(DeferTheme.textMuted.opacity(0.9))
             }
         }
         .padding(DeferTheme.spacing(2))
@@ -84,10 +68,7 @@ struct HomeFocusCardView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.13),
-                            Color.white.opacity(0.05)
-                        ],
+                        colors: [Color.white.opacity(0.13), Color.white.opacity(0.05)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -134,8 +115,15 @@ private struct HomeInfoChip: View {
             .ignoresSafeArea()
 
         HomeFocusCardView(
-            stats: HomeStats(active: 3, longestStreak: 12, dueSoon: 1),
-            liveCount: 2
+            stats: HomeStats(
+                activeWait: 3,
+                checkpointDue: 1,
+                recentUrges: 5,
+                intentionalRate: 0.64,
+                delayAdherenceRate: 0.71,
+                reflectionRate: 0.42
+            ),
+            liveCount: 3
         )
         .padding()
     }

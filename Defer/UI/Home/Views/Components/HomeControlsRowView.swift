@@ -20,12 +20,12 @@ struct HomeControlsRowView: View {
             }
 
             Menu {
-                Button("All Categories") { selectedCategory = nil }
+                Button("All") { selectedCategory = nil }
                 ForEach(DeferCategory.allCases) { category in
                     Button(category.displayName) { selectedCategory = category }
                 }
             } label: {
-                Label(selectedCategory?.displayName ?? "All Categories", systemImage: "line.3.horizontal.decrease.circle")
+                Label(selectedCategory?.displayName ?? "All", systemImage: "line.3.horizontal.decrease.circle")
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -44,7 +44,7 @@ struct HomeControlsRowView: View {
             .ignoresSafeArea()
 
         HomeControlsRowView(
-            sortOption: .constant(.closestDate),
+            sortOption: .constant(.checkpointSoonest),
             selectedCategory: .constant(.habit)
         )
         .padding()
