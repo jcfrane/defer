@@ -205,7 +205,7 @@ enum LocalNotificationManager {
 
         let content = UNMutableNotificationContent()
         content.title = "High-risk window"
-        content.body = "If an urge hits, capture it first and choose after the delay."
+        content.body = "If an urge hits, log it now and make an intentional choice at your checkpoint."
         content.sound = .default
 
         return UNNotificationRequest(identifier: Identifier.highRiskDaily, content: content, trigger: trigger)

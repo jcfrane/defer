@@ -6,6 +6,9 @@ struct AchievementBadgeTile: View {
     let progress: AchievementProgress
     let onTapUnlocked: () -> Void
 
+    @AppStorage(AppCurrencySettingsStore.Keys.currencyCode)
+    private var currencyCode = AppCurrencySettingsStore.defaultCurrencyCode
+
     private var isUnlocked: Bool { unlocked != nil }
 
     private var progressTuple: (current: Int, target: Int) {
@@ -15,6 +18,18 @@ struct AchievementBadgeTile: View {
     private var progressFraction: Double {
         guard progressTuple.target > 0 else { return 0 }
         return min(Double(progressTuple.current) / Double(progressTuple.target), 1)
+    }
+
+    private var progressText: String {
+        switch definition.rule {
+        case .minSavedSpend(let amount):
+            let current = min(progress.estimatedSpendAvoided.rounded(), amount)
+            let currentValue = CurrencyAmountFormatter.wholeAmount(current, currencyCode: currencyCode)
+            let targetValue = CurrencyAmountFormatter.wholeAmount(amount, currencyCode: currencyCode)
+            return "\(currentValue)/\(targetValue) saved"
+        default:
+            return definition.rule.progressText(using: progress)
+        }
     }
 
     var body: some View {
@@ -47,7 +62,7 @@ struct AchievementBadgeTile: View {
                     .frame(minHeight: 32)
             } else {
                 VStack(spacing: 6) {
-                    Text(definition.rule.progressText(using: progress))
+                    Text(progressText)
                         .font(.caption2)
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.84))
                         .multilineTextAlignment(.center)

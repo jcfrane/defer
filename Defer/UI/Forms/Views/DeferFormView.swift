@@ -449,26 +449,6 @@ struct DeferFormView: View {
             Divider().overlay(Color.white.opacity(0.12))
 
             HStack {
-                Button {
-                    AppHaptics.selection()
-                    dismiss()
-                } label: {
-                    Text("Cancel")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(DeferTheme.textMuted.opacity(0.9))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.08))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                                )
-                        )
-                }
-                .buttonStyle(.plain)
-
                 Spacer()
 
                 Button {

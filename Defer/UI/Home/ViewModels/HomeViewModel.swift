@@ -170,6 +170,15 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
+    func deleteUrgeLog(_ log: UrgeLog, repository: DeferRepository) {
+        do {
+            try repository.deleteUrgeLog(log)
+            AppHaptics.impact(.light)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func completeDecision(
         _ item: DeferItem,
         outcome: DecisionOutcome,

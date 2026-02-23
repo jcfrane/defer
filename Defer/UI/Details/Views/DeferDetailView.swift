@@ -7,6 +7,7 @@ struct DeferDetailView: View {
     let reflectionPromptEnabled: Bool
     let onLogUrge: () -> Void
     let onUseFallback: () -> Void
+    let onDeleteUrge: (UrgeLog) -> Void
     let onDecideOutcome: (DecisionOutcome, String?) -> Void
     let onPostpone: (DelayProtocol, String?) -> Void
     let onMarkGaveIn: () -> Void
@@ -240,7 +241,10 @@ struct DeferDetailView: View {
                 DeferContributionChartView(item: item)
             }
 
-            DeferRecentUrgesCardView(urgeLogs: recentUrges)
+            DeferRecentUrgesCardView(
+                urgeLogs: recentUrges,
+                onDeleteUrge: onDeleteUrge
+            )
         
         }
         .padding(.vertical, DeferTheme.spacing(1))
@@ -660,6 +664,7 @@ struct DeferDetailView: View {
         reflectionPromptEnabled: true,
         onLogUrge: {},
         onUseFallback: {},
+        onDeleteUrge: { _ in },
         onDecideOutcome: { _, _ in },
         onPostpone: { _, _ in },
         onMarkGaveIn: {},

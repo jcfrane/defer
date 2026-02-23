@@ -132,6 +132,9 @@ struct HomeView: View {
                     onUseFallback: {
                         viewModel.useFallback(item, repository: repository, currentAchievementCount: currentAchievementCount)
                     },
+                    onDeleteUrge: { log in
+                        viewModel.deleteUrgeLog(log, repository: repository)
+                    },
                     onDecideOutcome: { outcome, reflection in
                         viewModel.completeDecision(
                             item,

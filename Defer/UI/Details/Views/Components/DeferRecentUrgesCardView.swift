@@ -2,31 +2,18 @@ import SwiftUI
 
 struct DeferRecentUrgesCardView: View {
     let urgeLogs: [UrgeLog]
+    let onDeleteUrge: (UrgeLog) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: DeferTheme.spacing(1)) {
-            HStack {
-                Text("Recent Urges")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(DeferTheme.textPrimary)
-
-                Spacer()
-
-                Text("\(urgeLogs.count)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
-            }
+            header
 
             if urgeLogs.isEmpty {
                 Text("No urge logs yet.")
                     .font(.subheadline)
                     .foregroundStyle(DeferTheme.textMuted.opacity(0.78))
             } else {
-                VStack(spacing: DeferTheme.spacing(0.8)) {
-                    ForEach(urgeLogs, id: \.id) { log in
-                        urgeRow(log)
-                    }
-                }
+                listBody
             }
         }
         .padding(DeferTheme.spacing(1.25))
@@ -40,8 +27,42 @@ struct DeferRecentUrgesCardView: View {
         )
     }
 
-    private func urgeRow(_ log: UrgeLog) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+    private var header: some View {
+        HStack {
+            Text("Recent Urges")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(DeferTheme.textPrimary)
+
+            Spacer()
+
+            Text("\(urgeLogs.count)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
+        }
+    }
+
+    private var listBody: some View {
+        VStack(spacing: 0) {
+            ForEach(urgeLogs.indices, id: \.self) { index in
+                urgeListRow(at: index)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.07))
+        )
+    }
+
+    @ViewBuilder
+    private func urgeListRow(at index: Int) -> some View {
+        let log = urgeLogs[index]
+
+        HStack(alignment: .top, spacing: DeferTheme.spacing(1)) {
             Circle()
                 .fill(color(for: log.intensity).opacity(0.9))
                 .frame(width: 9, height: 9)
@@ -71,13 +92,29 @@ struct DeferRecentUrgesCardView: View {
                 }
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: DeferTheme.spacing(0.5))
 
             Text("\(log.intensity)/5")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(DeferTheme.textMuted.opacity(0.8))
         }
-        .padding(.vertical, 1)
+        .padding(.horizontal, DeferTheme.spacing(1))
+        .padding(.vertical, DeferTheme.spacing(0.9))
+        .background(Color.white.opacity(index.isMultiple(of: 2) ? 0.03 : 0.055))
+        .contentShape(Rectangle())
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                onDeleteUrge(log)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+
+        if index < urgeLogs.count - 1 {
+            Divider()
+                .overlay(Color.white.opacity(0.16))
+                .padding(.leading, DeferTheme.spacing(1))
+        }
     }
 
     private func color(for intensity: Int) -> Color {
@@ -113,7 +150,7 @@ struct DeferRecentUrgesCardView: View {
         DeferTheme.homeBackground
             .ignoresSafeArea()
 
-        DeferRecentUrgesCardView(urgeLogs: logs)
+        DeferRecentUrgesCardView(urgeLogs: logs, onDeleteUrge: { _ in })
             .padding()
     }
 }

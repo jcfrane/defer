@@ -44,6 +44,7 @@ protocol DeferRepository {
 
     func refreshLifecycle(asOf date: Date) throws -> Int
     func logUrge(intent: DeferItem, intensity: Int, note: String?, usedFallbackAction: Bool, at date: Date) throws
+    func deleteUrgeLog(_ urgeLog: UrgeLog) throws
     func completeDecision(
         intent: DeferItem,
         outcome: DecisionOutcome,
@@ -254,6 +255,15 @@ final class SwiftDataDeferRepository: DeferRepository {
                 payload: ["count": "\(unlocked.count)"]
             )
         }
+    }
+
+    func deleteUrgeLog(_ urgeLog: UrgeLog) throws {
+        if let deferItem = urgeLog.deferItem {
+            deferItem.updatedAt = .now
+        }
+
+        context.delete(urgeLog)
+        try context.save()
     }
 
     func completeDecision(

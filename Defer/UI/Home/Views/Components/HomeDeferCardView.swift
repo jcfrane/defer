@@ -10,6 +10,9 @@ struct HomeDeferCardView: View {
     let onMarkGaveIn: () -> Void
     let onCardTap: () -> Void
 
+    @AppStorage(AppCurrencySettingsStore.Keys.currencyCode)
+    private var currencyCode = AppCurrencySettingsStore.defaultCurrencyCode
+
     private var progress: Double { item.progressPercent() }
     private var statusColor: Color { DeferTheme.statusColor(for: item.status.normalizedLifecycle) }
     private var isResolved: Bool { item.status.normalizedLifecycle.isTerminal }
@@ -87,7 +90,7 @@ struct HomeDeferCardView: View {
                 Spacer(minLength: 0)
 
                 if let estimatedCost = item.estimatedCost {
-                    Text("$\(Int(estimatedCost.rounded()))")
+                    Text(CurrencyAmountFormatter.wholeAmount(estimatedCost, currencyCode: currencyCode))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(DeferTheme.textMuted.opacity(0.82))
                 }

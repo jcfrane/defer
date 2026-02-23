@@ -4,6 +4,9 @@ struct HistorySummarySectionView: View {
     let summary: HistorySummaryMetrics
     let monthlyRhythm: [HistoryMonthStat]
 
+    @AppStorage(AppCurrencySettingsStore.Keys.currencyCode)
+    private var currencyCode = AppCurrencySettingsStore.defaultCurrencyCode
+
     private var latestDecisionLabel: String {
         guard let latestDate = summary.latestDecisionDate else {
             return "No recent decision"
@@ -75,7 +78,10 @@ struct HistorySummarySectionView: View {
 
                 historyMetricPill(
                     title: "Spend Avoided",
-                    value: "$\(Int(summary.impulseSpendAvoided.rounded()))",
+                    value: CurrencyAmountFormatter.wholeAmount(
+                        summary.impulseSpendAvoided,
+                        currencyCode: currencyCode
+                    ),
                     icon: "dollarsign.circle.fill",
                     accent: DeferTheme.accent
                 )
